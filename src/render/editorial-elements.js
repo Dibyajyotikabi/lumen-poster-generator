@@ -1,4 +1,5 @@
 import { isDark, mix, rgba } from '../core/color.js';
+import { drawDecorativeElement } from './decorative-elements.js';
 
 function polygon(ctx, points, fill) {
   ctx.beginPath();
@@ -118,8 +119,10 @@ export function drawEditorialElement(ctx, layer, { W, H, u, theme }) {
       break;
     }
     default:
-      ctx.fillStyle = rgba(color, 0.65);
-      ctx.fillRect(x, y, w, h);
+      if (!drawDecorativeElement(ctx, layer.variant, { x, y, w, h, color, u })) {
+        ctx.fillStyle = rgba(color, 0.65);
+        ctx.fillRect(x, y, w, h);
+      }
   }
   ctx.restore();
   return { x, y, w, h };

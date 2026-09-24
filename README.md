@@ -10,6 +10,7 @@ A browser-based studio for YouTube thumbnails, blog featured images, LinkedIn ba
 - **Style individual phrases** — select the exact words or characters, then click **Accent words** or **Paper strip**. You can also type `*accent*` and `~paper~` directly.
 - **Paper on exact selections** — highlight the precise characters you want, then click **Paper strip** or a paper preset. Torn edges, shadows and fibers come in Torn, Notebook, Tape, Newsprint and Dark finishes; unselected text stays unchanged.
 - **Vox-style newspaper graphics** — add and edit accent bars, rules with dots, number badges, quote marks, arrows, halftone dots, voxel blocks and frame corners as independent layers. Resize, recolor, reorder and export them.
+- **Paper decorations and cute stickers** — add torn or cracked paper, washi tape, scribbles, swirls, cats, birds, flowers, sparkles and hearts as movable, resizable layers. Each can be recolored and appears in the exported poster.
 - **Display typography** — Editorial adds an offset and underline; Voxel title adds chunky 3D depth. Paper presets style only the selected text.
 - **1,900+ live Google fonts** — searchable, previewed in your own words, with hover-to-preview on the canvas.
 - **Auto-style** — reads your text's mood and picks a font pairing, palette and light style.

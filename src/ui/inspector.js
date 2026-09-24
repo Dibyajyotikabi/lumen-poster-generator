@@ -1,6 +1,6 @@
 import { h, pickFile } from './dom.js';
 import { slider, segmented, toggle, selectField, textField, colorField, button, section, pct } from './controls.js';
-import { PROFILE_VARIANTS, EDITORIAL_ELEMENTS } from '../app/model.js';
+import { PROFILE_VARIANTS, ELEMENTS, elementSize } from '../app/model.js';
 import { buildTextInspector } from './text-inspector.js';
 import { buildBackgroundInspector } from './background-inspector.js';
 import { layerHeader } from './layer-header.js';
@@ -90,11 +90,10 @@ function buildElementInspector(deps, id) {
   const update = (patch, key) => store.updateLayer(id, patch, key ? { key: `${id}:${key}` } : undefined);
   const initial = layerOf(store.get(), id);
   const variant = selectField({
-    label: 'Element', options: EDITORIAL_ELEMENTS, value: initial.variant,
+    label: 'Element', options: ELEMENTS, value: initial.variant,
     onChange: (value) => update({
       variant: value,
-      width: value === 'number' || value === 'quote' ? 0.14 : 0.35,
-      height: value === 'bar' || value === 'rule' ? 0.035 : 0.16,
+      ...elementSize(value),
     }),
   });
   const content = textField({ label: 'Badge text', value: initial.text ?? '01', onInput: (value) => update({ text: value.slice(0, 4) }, 'text') });
@@ -104,7 +103,7 @@ function buildElementInspector(deps, id) {
   const opacity = slider({ label: 'Opacity', min: 0, max: 1, step: 0.01, value: initial.opacity, format: pct, onInput: (value) => update({ opacity: value }, 'opacity') });
   const el = h('div', {},
     layerHeader('Element', id, deps),
-    section('Vox-style element', variant.el, content.el, width.el, height.el, color.el, opacity.el));
+    section('Element', variant.el, content.el, width.el, height.el, color.el, opacity.el));
   return {
     el,
     sync(state) {

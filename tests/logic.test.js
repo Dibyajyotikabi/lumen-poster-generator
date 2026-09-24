@@ -7,7 +7,7 @@ import { normalizeHandle, detectPlatform } from '../src/core/handles.js';
 import { extractPalette } from '../src/core/extract-palette.js';
 import { analyzeMood, suggestDirection, suggestFonts, MOODS } from '../src/fonts/suggest.js';
 import { nearestWeight } from '../src/fonts/catalog.js';
-import { createDocument, createTextLayer, createElementLayer, EDITORIAL_ELEMENTS, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
+import { createDocument, createTextLayer, createElementLayer, EDITORIAL_ELEMENTS, DECORATIVE_ELEMENTS, elementSize, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
 import { TEMPLATES, extractContent } from '../src/app/templates.js';
 import { drawText, layoutText } from '../src/render/text.js';
 import { textFitBounds } from '../src/render/renderer.js';
@@ -209,21 +209,29 @@ test('paper finishes draw deterministic torn edges and distinct textures', () =>
   assert.ok(draw('tape').some(([kind]) => kind === 'rect'));
 });
 
-test('all Vox-style elements paint and keep editable canvas bounds', () => {
+test('all editorial and decorative elements paint and keep editable canvas bounds', () => {
   const painted = [];
+  let fills = 0;
+  let strokes = 0;
   const ctx = {
-    save() {}, restore() {}, beginPath() {}, closePath() {}, fill() {}, stroke() {},
-    moveTo() {}, lineTo() {}, arc() {}, fillRect() {}, fillText(value) { painted.push(value); },
+    save() {}, restore() {}, beginPath() {}, closePath() {}, fill() { fills += 1; }, stroke() { strokes += 1; },
+    moveTo() {}, lineTo() {}, arc() {}, ellipse() {}, quadraticCurveTo() {}, bezierCurveTo() {},
+    translate() {}, scale() {}, clip() {}, fillRect() { fills += 1; }, fillText(value) { painted.push(value); },
+    createLinearGradient() { return { addColorStop() {} }; },
   };
   const theme = { accent: '#6f86ff' };
-  for (const { id } of EDITORIAL_ELEMENTS) {
+  for (const { id } of [...EDITORIAL_ELEMENTS, ...DECORATIVE_ELEMENTS]) {
     const layer = createElementLayer(id);
+    const before = fills + strokes + painted.length;
     const box = drawEditorialElement(ctx, layer, { W: 1280, H: 720, u: 1, theme });
     assert.ok(box.w > 0 && box.h > 0 && Number.isFinite(box.x) && Number.isFinite(box.y), id);
+    assert.ok(fills + strokes + painted.length > before, `${id} should draw`);
   }
   assert.ok(painted.includes('01'));
   assert.equal(createElementLayer('bar').cy, 0.72);
   assert.equal(createElementLayer('number').cx, 0.18);
+  assert.equal(createElementLayer('cat').color, '#efbd96');
+  assert.deepEqual(elementSize('bird'), { width: 0.13, height: 0.17 });
 });
 
 test('slugify produces safe file names', () => {

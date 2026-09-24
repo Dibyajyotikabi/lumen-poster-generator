@@ -80,6 +80,29 @@ export const EDITORIAL_ELEMENTS = [
   { id: 'bracket', label: 'Frame corners' },
 ];
 
+export const DECORATIVE_ELEMENTS = [
+  { id: 'paper-scrap', label: 'Torn scrap', group: 'paper', width: 0.2, height: 0.19, cx: 0.81, cy: 0.22, color: '#f4ead5' },
+  { id: 'cracked-paper', label: 'Cracked paper', group: 'paper', width: 0.2, height: 0.19, cx: 0.18, cy: 0.79, color: '#f0e1c4' },
+  { id: 'washi-tape', label: 'Washi tape', group: 'paper', width: 0.18, height: 0.055, cx: 0.79, cy: 0.2, color: '#eac9a0' },
+  { id: 'scribble', label: 'Scribble', group: 'paper', width: 0.18, height: 0.15, cx: 0.79, cy: 0.75 },
+  { id: 'swirl', label: 'Doodle swirl', group: 'paper', width: 0.13, height: 0.18, cx: 0.17, cy: 0.25 },
+  { id: 'cat', label: 'Cute cat', group: 'stickers', width: 0.12, height: 0.2, cx: 0.82, cy: 0.77, color: '#efbd96' },
+  { id: 'bird', label: 'Little bird', group: 'stickers', width: 0.13, height: 0.17, cx: 0.19, cy: 0.24, color: '#8dcfd7' },
+  { id: 'flower', label: 'Flower', group: 'stickers', width: 0.1, height: 0.16, cx: 0.82, cy: 0.24, color: '#e6a5c5' },
+  { id: 'sparkles', label: 'Sparkles', group: 'stickers', width: 0.14, height: 0.19, cx: 0.19, cy: 0.76, color: '#ffcd70' },
+  { id: 'heart', label: 'Heart', group: 'stickers', width: 0.09, height: 0.13, cx: 0.79, cy: 0.26, color: '#ef8fa2' },
+];
+
+export const ELEMENTS = [...EDITORIAL_ELEMENTS, ...DECORATIVE_ELEMENTS];
+
+export function elementSize(variant) {
+  const decorative = DECORATIVE_ELEMENTS.find((entry) => entry.id === variant);
+  return {
+    width: decorative?.width ?? (variant === 'quote' || variant === 'number' ? 0.14 : 0.35),
+    height: decorative?.height ?? (variant === 'bar' || variant === 'rule' ? 0.035 : 0.16),
+  };
+}
+
 export const PROFILE_VARIANTS = [
   { id: 'chip', label: 'Chip' },
   { id: 'card', label: 'Card' },
@@ -123,6 +146,7 @@ export function createTextLayer(overrides = {}) {
 }
 
 export function createElementLayer(variant = 'bar', overrides = {}) {
+  const decorative = DECORATIVE_ELEMENTS.find((entry) => entry.id === variant);
   const placement = {
     bar: { cy: 0.72 },
     rule: { cy: 0.78 },
@@ -131,7 +155,7 @@ export function createElementLayer(variant = 'bar', overrides = {}) {
     arrow: { cx: 0.78, cy: 0.76 },
     dots: { cx: 0.78, cy: 0.8 },
     voxels: { cx: 0.8, cy: 0.76 },
-  }[variant] ?? {};
+  }[variant] ?? (decorative ? { cx: decorative.cx, cy: decorative.cy } : {});
   return {
     id: uid('e'),
     type: 'element',
@@ -141,9 +165,8 @@ export function createElementLayer(variant = 'bar', overrides = {}) {
     text: variant === 'number' ? '01' : '',
     cx: 0.5,
     cy: 0.5,
-    width: variant === 'quote' || variant === 'number' ? 0.14 : 0.35,
-    height: variant === 'bar' || variant === 'rule' ? 0.035 : 0.16,
-    color: null,
+    ...elementSize(variant),
+    color: decorative?.color ?? null,
     opacity: 1,
     ...placement,
     ...overrides,
