@@ -4,6 +4,7 @@ import { PROFILE_VARIANTS } from '../app/model.js';
 import { buildTextInspector } from './text-inspector.js';
 import { buildBackgroundInspector } from './background-inspector.js';
 import { layerHeader } from './layer-header.js';
+import { buildLinkInspector } from './link-inspector.js';
 import { putAsset } from '../core/assets.js';
 
 const layerOf = (state, id) => state.doc.layers.find((l) => l.id === id);
@@ -55,12 +56,27 @@ function buildImageInspector(deps, id) {
       if (file) update({ assetId: await putAsset(file) });
     },
   });
-  const el = h('div', {}, layerHeader('Image', id, deps), section('Image', replace, width.el, radius.el, opacity.el, shadow.el));
+  const removeBg = button({ label: 'Remove background', iconName: 'wand', variant: 'btn-magic btn-wide', onClick: () => deps.actions.removeBackground(id) });
+  const restore = button({ label: 'Restore original', iconName: 'undo', variant: 'btn-wide', onClick: () => deps.actions.restoreOriginal(id) });
+  const cutoutHint = h('p', { class: 'hint-line' }, 'Keep just the product — click to remove hands, text or anything around it.');
+  const el = h(
+    'div',
+    {},
+    layerHeader('Image', id, deps),
+    section('Background removal', removeBg, cutoutHint, restore),
+    section('Image', replace, width.el, radius.el, opacity.el, shadow.el),
+  );
   return {
     el,
     sync(state) {
       const layer = layerOf(state, id);
       if (!layer) return;
+      const removeLabel = layer.cutout ? 'Edit cut-out' : 'Remove background';
+      removeBg.querySelector('span:last-child').textContent = removeLabel;
+      removeBg.setAttribute('aria-label', removeLabel);
+      removeBg.title = removeLabel;
+      restore.hidden = !layer.cutout;
+      radius.el.hidden = Boolean(layer.cutout);
       width.set(layer.width);
       radius.set(layer.radius);
       opacity.set(layer.opacity);
@@ -69,7 +85,7 @@ function buildImageInspector(deps, id) {
   };
 }
 
-const BUILDERS = { text: buildTextInspector, profile: buildProfileInspector, image: buildImageInspector };
+const BUILDERS = { text: buildTextInspector, profile: buildProfileInspector, image: buildImageInspector, link: buildLinkInspector };
 
 /** Context-sensitive right panel: background settings, or the selected layer's properties. */
 export function mountInspector(root, deps) {
@@ -92,6 +108,11 @@ export function mountInspector(root, deps) {
   store.subscribe((_, reason) => reason !== 'preview' && mount());
   mount();
   return {
+    focusLink() {
+      store.select(null);
+      mount();
+      mounted.api.focusLink?.();
+    },
     focusText(id) {
       store.select(id);
       mount();

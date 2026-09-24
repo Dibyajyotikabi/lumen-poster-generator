@@ -1,7 +1,7 @@
 import { h, icon, pickFile } from './dom.js';
 import { TEMPLATES } from '../app/templates.js';
 
-const TYPE_ICON = { text: 'text', profile: 'user', image: 'image' };
+const TYPE_ICON = { text: 'text', profile: 'user', image: 'image', link: 'link' };
 const NAME_LIMIT = 28;
 
 function layerName(layer, profiles) {
@@ -10,6 +10,7 @@ function layerName(layer, profiles) {
     return clean ? (clean.length > NAME_LIMIT ? `${clean.slice(0, NAME_LIMIT)}…` : clean) : 'Empty text';
   }
   if (layer.type === 'profile') return profiles.find((p) => p.id === layer.profileId)?.name ?? 'Profile';
+  if (layer.type === 'link') return layer.siteName || layer.domain || 'Link';
   return 'Image';
 }
 
@@ -22,13 +23,14 @@ function iconButton(name, label, onClick, pressed) {
 }
 
 /** Left rail: add buttons, layout templates and the layer stack. */
-export function mountRail(root, { store, actions }) {
+export function mountRail(root, { store, actions, focusLink }) {
   const addRow = h(
     'div',
     { class: 'add-row' },
     h('button', { type: 'button', class: 'add-btn', onclick: () => actions.addText() }, icon('text', 18), h('span', {}, 'Text')),
     h('button', { type: 'button', class: 'add-btn', onclick: () => actions.addProfile() }, icon('user', 18), h('span', {}, 'Profile')),
     h('button', { type: 'button', class: 'add-btn', onclick: () => pickFile().then((f) => f && actions.addImageFile(f)) }, icon('image', 18), h('span', {}, 'Image')),
+    h('button', { type: 'button', class: 'add-btn', onclick: () => focusLink() }, icon('link', 18), h('span', {}, 'Link')),
   );
 
   const templates = h(

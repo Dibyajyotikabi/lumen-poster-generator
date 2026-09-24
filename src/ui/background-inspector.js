@@ -1,4 +1,5 @@
-import { h, pickFile, toast } from './dom.js';
+import { h, icon, pickFile, toast } from './dom.js';
+import { asLink } from '../app/link.js';
 import { slider, segmented, toggle, colorField, button, section, pct } from './controls.js';
 import { STYLES, PALETTES } from '../app/model.js';
 import { paintBackground } from '../render/background.js';
@@ -52,7 +53,10 @@ export function buildBackgroundInspector(deps) {
     loadWallpapers().then((info) => {
       if (info.current) setBg({ source: 'wallpaper', effectOnImage: bg().effectOnImage });
       else if (info.library[0]) setBg({ source: 'library', libraryId: bg().libraryId ?? info.library[0].id });
-      else toast('No wallpapers found on this Mac');
+      else {
+        toast(info.unsupported ? 'Mac wallpapers work when you run Lumen on your Mac — upload any image instead' : 'No wallpapers found on this Mac');
+        source.set(sourceTab(bg()));
+      }
     });
   }
 
@@ -72,7 +76,13 @@ export function buildBackgroundInspector(deps) {
       wallTiles = entries.map((e) => ({ is: e.is, el: wallpaperTile({ label: e.label, src: e.src, active: e.is(bg()), onClick: () => setBg(e.patch) }) }));
       const note = info.current
         ? null
-        : h('p', { class: 'hint-line' }, info.error ? 'Wallpaper access needs the Lumen server (npm start).' : 'Your current wallpaper file isn’t on disk any more — pick one from the macOS library, or upload any image.');
+        : h(
+            'p',
+            { class: 'hint-line' },
+            info.error || info.unsupported
+              ? 'Mac wallpapers are available when you run Lumen on your Mac (npm start). Upload any image instead.'
+              : 'Your current wallpaper file isn’t on disk any more — pick one from the macOS library, or upload any image.',
+          );
       wrap.replaceChildren(...(note ? [note] : []), ...wallTiles.map((t) => t.el));
     });
     return wrap;
@@ -94,6 +104,29 @@ export function buildBackgroundInspector(deps) {
       h('p', { class: 'hint-line' }, 'Or drop / paste (⌘V) an image anywhere.'),
     );
   }
+
+  /* ---------- from a link ---------- */
+  const linkInput = h('input', { type: 'url', class: 'link-input', placeholder: 'Paste any link — article, YouTube, product…', autocomplete: 'off', spellcheck: false });
+  const linkBtn = h('button', { type: 'submit', class: 'btn btn-primary' }, 'Fetch');
+  const linkForm = h(
+    'form',
+    {
+      class: 'link-form',
+      noValidate: true, // we accept bare domains like example.com/post — asLink() normalises them
+      onsubmit: async (e) => {
+        e.preventDefault();
+        const url = asLink(linkInput.value);
+        if (!url) return toast('Paste a full link, e.g. https://example.com/article');
+        linkBtn.disabled = true;
+        const preview = await actions.importLink(url);
+        linkBtn.disabled = false;
+        if (preview) linkInput.value = '';
+      },
+    },
+    h('span', { class: 'link-input-wrap' }, icon('link', 15), linkInput),
+    linkBtn,
+  );
+  const linkSection = section('From a link', linkForm, h('p', { class: 'hint-line' }, 'Uses the page’s image as a soft backdrop and adds a link card. Tip: just press ⌘V with a copied link.'));
 
   /* ---------- image adjustments ---------- */
   const blur = slider({ label: 'Blur', min: 0, max: 1, step: 0.01, value: bg().blur, format: pct, onInput: (v) => setBg({ blur: v }, 'blur') });
@@ -136,6 +169,7 @@ export function buildBackgroundInspector(deps) {
     'div',
     {},
     h('header', { class: 'inspector-head' }, h('h2', {}, 'Background'), h('span', { class: 'inspector-sub' }, 'Click a layer to edit it')),
+    linkSection,
     h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Source'), source.el, sourceBody),
     imageSection,
     styleSection,
@@ -146,6 +180,9 @@ export function buildBackgroundInspector(deps) {
   let lastTab = null;
   return {
     el,
+    focusLink() {
+      linkInput.focus();
+    },
     sync(state) {
       const b = state.doc.background;
       const tab = sourceTab(b);

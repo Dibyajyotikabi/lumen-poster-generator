@@ -1,4 +1,5 @@
-import { createTextLayer, createProfileLayer, createImageLayer, createProfile, PALETTES, docSize, uid } from './model.js';
+import { createTextLayer, createProfileLayer, createImageLayer, createLinkLayer, createProfile, PALETTES, docSize, uid } from './model.js';
+import { fetchLinkPreview, fetchRemoteImage } from './link.js';
 import { TEMPLATES, extractContent } from './templates.js';
 import { putAsset } from '../core/assets.js';
 import { extractPalette } from '../core/extract-palette.js';
@@ -9,6 +10,7 @@ import { suggestDirection } from '../fonts/suggest.js';
 import { availableIds, getFont, nearestWeight } from '../fonts/catalog.js';
 import { fontReady } from '../fonts/loader.js';
 import { toast } from '../ui/dom.js';
+import { cutoutPlacement } from '../cutout/selection.js';
 
 const FORMATS = {
   png: { type: 'image/png', ext: 'png' },
@@ -17,8 +19,19 @@ const FORMATS = {
 };
 
 const MIN_UNIQUE_PROFILES = 2;
+const SAMPLE_PX = 48;
 
-export function createActions({ store, images, render }) {
+function themeFromImage(img) {
+  const sample = document.createElement('canvas');
+  sample.width = SAMPLE_PX;
+  sample.height = SAMPLE_PX;
+  const ctx = sample.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, SAMPLE_PX, SAMPLE_PX);
+  return extractPalette(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
+}
+const LINK_BACKDROP = { blur: 1, dim: 0.3, zoom: 1.2 };
+
+export function createActions({ store, images, render, cutout }) {
   const current = () => store.get();
   const layerById = (id) => current().doc.layers.find((l) => l.id === id);
 
@@ -74,6 +87,90 @@ export function createActions({ store, images, render }) {
       store.setLayers(next);
     },
 
+    /** Opens the background remover for an image layer; always cuts from the untouched original. */
+    async removeBackground(id = current().selection) {
+      const layer = layerById(id);
+      if (layer?.type !== 'image') return;
+      const originalId = layer.originalAssetId ?? layer.assetId;
+      const img = await images.whenReady(`asset:${originalId}`);
+      if (!img) return toast('Could not load that image');
+      const base = layer.original ?? { cx: layer.cx, cy: layer.cy, width: layer.width, radius: layer.radius };
+      await cutout.open({
+        img,
+        key: originalId,
+        onApply: async (result) => {
+          const assetId = await putAsset(new File([result.blob], 'cutout.png', { type: 'image/png' }));
+          await images.whenReady(`asset:${assetId}`);
+          const placement = cutoutPlacement({ ...layer, ...base }, result, docSize(current().doc));
+          store.updateLayer(id, { assetId, originalAssetId: originalId, original: base, cutout: true, radius: 0, ...placement });
+          toast('Background removed');
+        },
+      });
+    },
+
+    restoreOriginal(id = current().selection) {
+      const layer = layerById(id);
+      if (!layer?.cutout) return;
+      store.updateLayer(id, { assetId: layer.originalAssetId, cutout: false, originalAssetId: null, original: null, ...layer.original });
+    },
+
+    /**
+     * Fetches a link's preview and shows it beautifully: the page image becomes a soft, blurred
+     * backdrop (colours matched to it) and a crisp link card is placed on top.
+     */
+    async importLink(url, { background = true, card = true } = {}) {
+      toast('Fetching link…');
+      try {
+        const preview = await fetchLinkPreview(url);
+        const [imageFile, iconFile] = await Promise.all([
+          fetchRemoteImage(preview.image).then((f) => f ?? fetchRemoteImage(preview.fallbackImage)),
+          fetchRemoteImage(preview.icon),
+        ]);
+        const [imageAssetId, iconAssetId] = await Promise.all([imageFile ? putAsset(imageFile) : null, iconFile ? putAsset(iconFile).catch(() => null) : null]);
+        const [image] = await Promise.all([imageAssetId, iconAssetId].map((id) => (id ? images.whenReady(`asset:${id}`) : null)));
+        const { doc } = current();
+        let next = doc;
+        if (background && image) {
+          next = { ...next, background: { ...next.background, source: 'upload', assetId: imageAssetId, ...LINK_BACKDROP, effectOnImage: false }, theme: themeFromImage(image) };
+        } else if (background && preview.themeColor) {
+          next = { ...next, theme: { ...next.theme, accent: preview.themeColor } };
+        }
+        let cardId = null;
+        if (card) {
+          // Showcase layout: keep people, give the card the stage.
+          const people = doc.layers.filter((l) => l.type === 'profile').map((l) => ({ ...l, cy: 0.87 }));
+          const cardLayer = createLinkLayer(preview, { imageAssetId, iconAssetId, variant: imageAssetId ? 'card' : 'compact', cy: people.length ? 0.44 : 0.5 });
+          next = { ...next, layers: [...people, cardLayer] };
+          cardId = cardLayer.id;
+        }
+        store.commit(next); // one undo step restores everything
+        if (cardId) store.select(cardId);
+        toast(`Added ${preview.siteName || preview.domain}${imageAssetId ? '' : ' (no preview image found)'} · ⌘Z to undo`);
+        return preview;
+      } catch (err) {
+        console.warn('[lumen] link import failed', err);
+        toast(err.message || 'Could not fetch that link');
+        return null;
+      }
+    },
+
+    /** Copies a link card's title into the main headline (or a new text layer). */
+    useLinkTitle(id) {
+      const link = layerById(id);
+      if (link?.type !== 'link') return;
+      const headline = [...current().doc.layers].filter((l) => l.type === 'text').sort((a, b) => b.size - a.size)[0];
+      if (headline) store.updateLayer(headline.id, { text: link.title });
+      else actions.addText({ text: link.title, size: 54, cy: 0.12, width: 0.86, lineHeight: 1.08 });
+    },
+
+    async linkImageAsBackground(id) {
+      const link = layerById(id);
+      if (!link?.imageAssetId) return toast('This link has no preview image');
+      store.updateBackground({ source: 'upload', assetId: link.imageAssetId, ...LINK_BACKDROP });
+      await images.whenReady(`asset:${link.imageAssetId}`);
+      actions.matchImageColors();
+    },
+
     center(id, axis) {
       store.updateLayer(id, axis === 'x' ? { cx: 0.5 } : { cy: 0.5 });
     },
@@ -115,13 +212,7 @@ export function createActions({ store, images, render }) {
       const key = imageKeyFor(current().doc.background);
       const img = key ? await images.whenReady(key) : null;
       if (!img) return toast('Pick an image or wallpaper background first');
-      const sample = document.createElement('canvas');
-      sample.width = 48;
-      sample.height = 48;
-      const ctx = sample.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0, 48, 48);
-      const theme = extractPalette(ctx.getImageData(0, 0, 48, 48).data);
-      store.updateTheme(theme);
+      store.updateTheme(themeFromImage(img));
       toast('Colours matched to the image');
     },
 
@@ -159,7 +250,9 @@ export function createActions({ store, images, render }) {
     async renderExport(scale) {
       const state = current();
       const key = imageKeyFor(state.doc.background);
-      const assetKeys = state.doc.layers.filter((l) => l.type === 'image').map((l) => `asset:${l.assetId}`);
+      const assetKeys = state.doc.layers.flatMap((l) =>
+        l.type === 'image' ? [`asset:${l.assetId}`] : l.type === 'link' ? [l.imageAssetId, l.iconAssetId].filter(Boolean).map((id) => `asset:${id}`) : [],
+      );
       const photoKeys = state.profiles.filter((p) => p.photoAssetId).map((p) => `asset:${p.photoAssetId}`);
       const fonts = state.doc.layers.filter((l) => l.type === 'text').map((l) => l.font);
       await Promise.all([

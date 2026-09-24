@@ -3,7 +3,7 @@ import { createRng } from '../core/random.js';
 import { isDark, rgba } from '../core/color.js';
 import { BASE_UNIT } from '../app/model.js';
 
-const BLUR_SCALE = 0.06;
+const BLUR_SCALE = 0.1; // blur 1 → radius of 10% of the short edge
 
 export function imageKeyFor(background) {
   if (background.source === 'wallpaper') return 'wallpaper';

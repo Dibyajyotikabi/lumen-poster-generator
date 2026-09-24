@@ -130,6 +130,34 @@ export function createImageLayer(assetId, overrides = {}) {
   };
 }
 
+export const LINK_VARIANTS = [
+  { id: 'card', label: 'Card' },
+  { id: 'compact', label: 'Compact' },
+  { id: 'minimal', label: 'Minimal' },
+];
+
+export function createLinkLayer(preview, overrides = {}) {
+  return {
+    id: uid('k'),
+    type: 'link',
+    visible: true,
+    locked: false,
+    url: preview.url,
+    domain: preview.domain,
+    siteName: preview.siteName ?? '',
+    title: preview.title ?? preview.domain,
+    description: preview.description ?? '',
+    imageAssetId: null,
+    iconAssetId: null,
+    variant: 'card',
+    showDescription: true,
+    cx: 0.5,
+    cy: 0.5,
+    width: 0.46,
+    ...overrides,
+  };
+}
+
 export function createProfile(overrides = {}) {
   return {
     id: uid('pr'),
@@ -183,7 +211,7 @@ export function sanitizeDocument(input) {
   if (!input || input.version !== 2 || !Array.isArray(input.layers)) return null;
   const theme = input.theme ?? {};
   if (![theme.bg, theme.text, theme.accent].every(isHex)) return null;
-  const layers = input.layers.filter((l) => l && typeof l.id === 'string' && ['text', 'profile', 'image'].includes(l.type));
+  const layers = input.layers.filter((l) => l && typeof l.id === 'string' && ['text', 'profile', 'image', 'link'].includes(l.type));
   const custom = {
     width: Math.round(clampNum(input.custom?.width, 64, 4096, 1280)),
     height: Math.round(clampNum(input.custom?.height, 64, 4096, 720)),

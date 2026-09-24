@@ -1,0 +1,4 @@
+tests
+.claude
+.playwright-mcp
+*.log

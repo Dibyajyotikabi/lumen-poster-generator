@@ -193,17 +193,17 @@ select:focus-visible, input:focus-visible, textarea:focus-visible { outline: non
 
 /* ---------- rail ---------- */
 
-.add-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.add-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .add-btn {
   display: grid;
   justify-items: center;
   gap: 6px;
-  padding: 12px 4px 10px;
+  padding: 11px 2px 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
   background: var(--field);
   color: var(--ink-2);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur-fast), color var(--dur-fast);
@@ -290,7 +290,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible { outline: non
 output { color: var(--muted); font: 400 11px var(--font-mono); }
 .hint-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 
-input[type="text"], input[type="search"], textarea {
+input[type="text"], input[type="search"], input[type="url"], textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line-strong);
@@ -505,3 +505,48 @@ dialog[open] { animation: rise var(--dur) var(--ease); }
   *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
 }
 .field-pair > .field { margin-top: 12px; }
+
+/* ---------- background remover ---------- */
+
+.cutout-dialog { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; width: min(1180px, calc(100vw - 32px)); height: min(820px, calc(100dvh - 40px)); }
+.cutout-dialog:not([open]) { display: none; }
+.cutout-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 0; }
+.cutout-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--stage);
+  background-image: radial-gradient(var(--stage-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.cutout-canvas { display: block; max-width: calc(100% - 32px); max-height: calc(100% - 32px); border-radius: 6px; box-shadow: var(--shadow-stage); cursor: crosshair; }
+.cutout-stage[data-checker="true"] .cutout-canvas { background: repeating-conic-gradient(#d9d6ce 0 25%, #f7f5f0 0 50%) 0 0 / 18px 18px; }
+.cutout-stage[data-tool="remove"] .cutout-canvas { cursor: cell; }
+.cutout-side { overflow-y: auto; padding: 4px 18px 18px; border-left: 1px solid var(--line); }
+.cutout-row { display: flex; gap: 8px; margin-top: 10px; }
+.cutout-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.cutout-foot .hint-line { margin: 0; }
+.cutout-foot .cutout-row { margin: 0; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.cutout-status { display: grid; gap: 6px; max-height: 0; overflow: hidden; margin: 0 -18px; padding: 0 18px; background: #fff4ee; color: #8a3410; font-size: 12px; font-weight: 500; transition: max-height var(--dur) var(--ease), padding var(--dur) var(--ease); }
+.cutout-status[data-active="true"] { max-height: 80px; padding: 12px 18px; }
+.cutout-bar { position: relative; display: block; height: 3px; overflow: hidden; border-radius: 3px; background: rgba(255, 91, 31, 0.18); }
+.cutout-bar-fill { position: absolute; inset: 0; background: var(--signal); transform-origin: left; transform: scaleX(0); transition: transform 200ms linear; }
+.cutout-bar[data-indeterminate="true"] .cutout-bar-fill { width: 35%; transform: none; animation: slide 1.1s var(--ease) infinite; }
+@keyframes slide { from { left: -35%; } to { left: 100%; } }
+
+.btn-magic.btn-wide { border-radius: var(--radius-s); }
+
+/* ---------- links ---------- */
+
+.link-form { display: flex; gap: 6px; }
+.link-input-wrap { position: relative; display: flex; flex: 1; align-items: center; min-width: 0; }
+.link-input-wrap .icon { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
+.link-input-wrap .link-input { padding-left: 32px; }
+.link-form .btn { height: auto; border-radius: var(--radius-s); }
+.link-source { display: inline-flex; max-width: 100%; overflow: hidden; color: var(--signal); font: 500 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.link-source:hover { text-decoration: underline; text-underline-offset: 3px; }
+.link-source::after { content: " ↗"; }

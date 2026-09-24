@@ -10,7 +10,9 @@ import { mountRail } from '../ui/layers-panel.js';
 import { mountInspector } from '../ui/inspector.js';
 import { createFontPicker } from '../ui/font-picker.js';
 import { createProfilesDialog } from '../ui/profiles-dialog.js';
+import { createCutoutDialog } from '../ui/cutout-dialog.js';
 import { $, toast } from '../ui/dom.js';
+import { asLink } from './link.js';
 
 const NUDGE = 1;
 const NUDGE_FAST = 10;
@@ -32,7 +34,7 @@ const images = createImageCache((key, err) => {
   scheduleRender();
 });
 const render = createRenderer(images);
-const actions = createActions({ store, images, render });
+const actions = createActions({ store, images, render, cutout: createCutoutDialog() });
 
 const editor = createEditor({
   store,
@@ -44,7 +46,7 @@ const editor = createEditor({
 
 const fontPicker = createFontPicker({ store });
 const people = createProfilesDialog({ store, images });
-const deps = { store, actions, images, openFontPicker: (id) => fontPicker.open(id), openProfiles: (id) => people.open(id) };
+const deps = { store, actions, images, openFontPicker: (id) => fontPicker.open(id), openProfiles: (id) => people.open(id), focusLink: () => inspector.focusLink() };
 
 mountRail($('#rail'), deps);
 const inspector = mountInspector($('#inspector'), deps);
@@ -147,10 +149,17 @@ const imageFrom = (list) => [...(list ?? [])].find((f) => f.type?.startsWith('im
 document.addEventListener('paste', (e) => {
   if (isTyping(e.target)) return;
   const file = imageFrom(e.clipboardData?.files);
-  if (!file) return;
-  e.preventDefault();
-  actions.setBackgroundFile(file);
-  toast('Pasted image set as background');
+  if (file) {
+    e.preventDefault();
+    actions.setBackgroundFile(file);
+    toast('Pasted image set as background');
+    return;
+  }
+  const link = asLink(e.clipboardData?.getData('text/plain'));
+  if (link) {
+    e.preventDefault();
+    actions.importLink(link);
+  }
 });
 
 const veil = $('#dropVeil');

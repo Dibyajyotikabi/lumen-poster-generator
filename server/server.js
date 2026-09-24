@@ -8,6 +8,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { unfurl, safeFetch, MAX_IMAGE_BYTES } from './unfurl.js';
+import { fetchFontCatalog } from './catalog.js';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,7 +17,6 @@ const CACHE_DIR = path.join(os.tmpdir(), 'lumen-cache');
 const PORT = Number(process.env.PORT) || 5173;
 const HOST = '127.0.0.1';
 const SYSTEM_WALLPAPERS = '/System/Library/Desktop Pictures';
-const FONT_LIST_URL = 'https://api.fontsource.org/v1/fonts';
 const FONT_CACHE_MS = 7 * 24 * 3600 * 1000;
 const IMAGE_EXT = /\.(heic|jpe?g|png|tiff?|webp)$/i;
 const SIZES = { thumb: 480, full: 2880 };
@@ -146,12 +147,7 @@ async function handleFonts(res) {
     if (info && Date.now() - info.mtimeMs < FONT_CACHE_MS) {
       return send(res, 200, await readFile(file), MIME['.json'], { 'Cache-Control': 'max-age=3600' });
     }
-    const response = await fetch(FONT_LIST_URL, { signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`Font API responded ${response.status}`);
-    const list = (await response.json())
-      .filter((f) => f.type === 'google' && f.subsets.includes('latin'))
-      .map((f) => ({ id: f.id, family: f.family, category: f.category, weights: f.weights, styles: f.styles, variable: f.variable }));
-    const body = JSON.stringify(list);
+    const body = JSON.stringify(await fetchFontCatalog());
     await mkdir(CACHE_DIR, { recursive: true });
     await writeFile(file, body);
     return send(res, 200, body, MIME['.json'], { 'Cache-Control': 'max-age=3600' });
@@ -159,6 +155,27 @@ async function handleFonts(res) {
     console.warn('[lumen] font catalog failed:', err.message);
     if (await exists(file)) return send(res, 200, await readFile(file), MIME['.json']);
     return send(res, 502, { error: 'Font catalog unavailable (offline?)' });
+  }
+}
+
+/* ---------- links ---------- */
+
+async function handleUnfurl(res, url) {
+  try {
+    return send(res, 200, await unfurl(url.searchParams.get('url') ?? ''), MIME['.json'], { 'Cache-Control': 'max-age=600' });
+  } catch (err) {
+    return send(res, err.status ?? 502, { error: err.status ? err.message : 'Could not fetch that link' });
+  }
+}
+
+/** Streams a remote image through our origin so the canvas can use it (no CORS tainting). */
+async function handleImageProxy(res, url) {
+  try {
+    const { type, body } = await safeFetch(url.searchParams.get('url') ?? '', { accept: 'image/avif,image/webp,image/*;q=0.9', maxBytes: MAX_IMAGE_BYTES });
+    if (!type.startsWith('image/')) return send(res, 415, { error: 'Not an image' });
+    return send(res, 200, body, type.includes('svg') ? 'image/svg+xml' : type, { 'Cache-Control': 'max-age=3600', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+  } catch (err) {
+    return send(res, err.status ?? 502, { error: err.status ? err.message : 'Could not fetch that image' });
   }
 }
 
@@ -185,6 +202,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname.startsWith('/api/wallpapers')) return await handleWallpaper(res, url);
     if (url.pathname === '/api/fonts') return await handleFonts(res);
+    if (url.pathname === '/api/unfurl') return await handleUnfurl(res, url);
+    if (url.pathname === '/api/image') return await handleImageProxy(res, url);
     return await handleStatic(res, url);
   } catch (err) {
     console.error('[lumen] request failed', req.url, err);

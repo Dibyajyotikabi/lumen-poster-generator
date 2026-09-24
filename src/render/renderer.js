@@ -3,6 +3,7 @@ import { createBackgroundCache, paintBackground } from './background.js';
 import { makeCanvas } from './effects.js';
 import { layoutText, drawText, roundRectPath } from './text.js';
 import { drawProfileLayer } from './profile.js';
+import { drawLinkLayer } from './linkcard.js';
 import { rgba } from '../core/color.js';
 
 const PLACEHOLDER_ASPECT = 0.62;
@@ -20,6 +21,17 @@ function drawImageLayer(ctx, layer, img, { W, H, u, theme }) {
     ctx.strokeStyle = rgba(theme.text, 0.4);
     ctx.lineWidth = Math.max(1, u * 1.5);
     ctx.stroke();
+    ctx.restore();
+    return box;
+  }
+  if (layer.cutout) {
+    // Transparent cut-out: the shadow follows the object's outline, no rounded clip.
+    if (layer.shadow) {
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 40 * u;
+      ctx.shadowOffsetY = 16 * u;
+    }
+    ctx.drawImage(img, box.x, box.y, w, h);
     ctx.restore();
     return box;
   }
@@ -78,6 +90,10 @@ export function createRenderer(images) {
         const profile = profileById.get(layer.profileId);
         const img = profile?.photoAssetId ? images.get(`asset:${profile.photoAssetId}`) : null;
         boxes.set(layer.id, drawProfileLayer(ctx, layer, profile, img, env));
+      } else if (layer.type === 'link') {
+        const image = layer.imageAssetId ? images.get(`asset:${layer.imageAssetId}`) : null;
+        const icon = layer.iconAssetId ? images.get(`asset:${layer.iconAssetId}`) : null;
+        boxes.set(layer.id, drawLinkLayer(ctx, layer, image, icon, env));
       } else if (layer.type === 'image') {
         boxes.set(layer.id, drawImageLayer(ctx, layer, images.get(`asset:${layer.assetId}`), env));
       }
