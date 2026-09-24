@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumen Studio</title>
+  <meta name="description" content="A fast, local thumbnail and featured-image studio: unlimited text, 1,900+ live fonts, generated light, wallpaper backgrounds and profile cards.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap">
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Lumen</span>
+        <span class="brand-tag">studio</span>
+      </div>
+
+      <div class="doc-controls">
+        <label class="sr-only" for="sizeSelect">Canvas size</label>
+        <select id="sizeSelect" class="select-quiet"></select>
+        <span class="dims">
+          <label class="sr-only" for="customW">Width</label>
+          <input id="customW" type="number" min="64" max="4096" inputmode="numeric">
+          <span aria-hidden="true">×</span>
+          <label class="sr-only" for="customH">Height</label>
+          <input id="customH" type="number" min="64" max="4096" inputmode="numeric">
+        </span>
+        <span class="history">
+          <button type="button" class="icon-btn" id="undo" title="Undo (⌘Z)" aria-label="Undo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+          <button type="button" class="icon-btn" id="redo" title="Redo (⇧⌘Z)" aria-label="Redo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+        </span>
+      </div>
+
+      <nav class="actions" aria-label="Actions">
+        <button type="button" class="btn btn-magic" id="autoStyle" title="Read my text and style it (A)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>
+          <span>Auto-style</span>
+        </button>
+        <button type="button" class="btn" id="copy">Copy</button>
+        <span class="export">
+          <label class="sr-only" for="format">Format</label>
+          <select id="format" class="select-quiet">
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+            <option value="webp">WebP</option>
+          </select>
+          <label class="sr-only" for="scale">Scale</label>
+          <select id="scale" class="select-quiet">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="download" title="Export (⌘S)">Export</button>
+        </span>
+      </nav>
+    </header>
+
+    <div class="workspace">
+      <aside class="rail" id="rail" aria-label="Add and layers"></aside>
+
+      <main class="stage" aria-label="Canvas">
+        <div class="stage-area" id="stageArea">
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="canvas" role="img" aria-label="Design preview"></canvas>
+          </div>
+        </div>
+        <footer class="stage-foot">
+          <span id="meta"></span>
+          <span class="shortcuts"><kbd>T</kbd> text · <kbd>A</kbd> auto-style · <kbd>G</kbd> new light · <kbd>⌘Z</kbd> undo · drag · double-click to edit · drop/paste image</span>
+        </footer>
+      </main>
+
+      <aside class="inspector" id="inspector" aria-label="Properties"></aside>
+    </div>
+  </div>
+
+  <div class="drop-veil" id="dropVeil" data-show="false"><p>Drop to use as background <small>hold ⌥ to add as an image layer</small></p></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="src/app/main.js"></script>
+</body>
+</html>

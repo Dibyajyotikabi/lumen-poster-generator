@@ -1,0 +1,179 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { wrapLines, fitText, slugify } from '../src/core/layout.js';
+import { hexToRgb, rgbToHex, mix, isDark, shiftHue, hexToHsl, isHex, luminance } from '../src/core/color.js';
+import { createRng } from '../src/core/random.js';
+import { normalizeHandle, detectPlatform } from '../src/core/handles.js';
+import { extractPalette } from '../src/core/extract-palette.js';
+import { analyzeMood, suggestDirection, suggestFonts, MOODS } from '../src/fonts/suggest.js';
+import { nearestWeight } from '../src/fonts/catalog.js';
+import { createDocument, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
+import { TEMPLATES, extractContent } from '../src/app/templates.js';
+
+// Fake metric: every character is half the font size wide.
+const measureAt = (str, size) => str.length * size * 0.5;
+
+/* ---------- layout ---------- */
+
+test('wrapLines breaks on width and respects explicit newlines', () => {
+  const measure = (s) => s.length * 10;
+  assert.deepEqual(wrapLines('one two three', 70, measure), ['one two', 'three']);
+  assert.deepEqual(wrapLines('a\nb', 1000, measure), ['a', 'b']);
+  assert.deepEqual(wrapLines('   ', 100, measure), []);
+});
+
+test('wrapLines keeps blank lines between paragraphs but trims the edges', () => {
+  const measure = (s) => s.length;
+  assert.deepEqual(wrapLines('\n\nfirst\n\nsecond\n\n', 100, measure), ['first', '', 'second']);
+});
+
+test('wrapLines handles very long text quickly', () => {
+  const text = Array.from({ length: 20000 }, (_, i) => `word${i}`).join(' ');
+  const started = performance.now();
+  const lines = wrapLines(text, 400, (s) => s.length * 8);
+  assert.ok(lines.length > 1000);
+  assert.ok(performance.now() - started < 1000);
+});
+
+test('fitText returns the largest size that fits the box', () => {
+  const fit = fitText({ text: 'One UI 9', maxWidth: 400, maxHeight: 120, minSize: 10, maxSize: 300, lineHeight: 1, maxLines: 4, measureAt });
+  assert.equal(fit.lines.length, 1);
+  assert.equal(fit.size, 100);
+});
+
+test('fitText falls back to minSize when nothing fits', () => {
+  const fit = fitText({ text: 'x'.repeat(50), maxWidth: 10, maxHeight: 10, minSize: 12, maxSize: 40, lineHeight: 1, maxLines: 1, measureAt });
+  assert.equal(fit.size, 12);
+});
+
+test('slugify produces safe file names', () => {
+  assert.equal(slugify('One UI 9 — What’s New?'), 'one-ui-9-what-s-new');
+  assert.equal(slugify('!!!'), 'thumbnail');
+});
+
+/* ---------- colour ---------- */
+
+test('colour helpers round-trip and blend', () => {
+  assert.deepEqual(hexToRgb('#ff8000'), { r: 255, g: 128, b: 0 });
+  assert.equal(rgbToHex({ r: 255, g: 128, b: 0 }), '#ff8000');
+  assert.equal(mix('#000000', '#ffffff', 0.5), '#808080');
+  assert.equal(isDark('#0b0b10'), true);
+  assert.equal(isDark('#f3efe6'), false);
+  assert.throws(() => hexToRgb('red'));
+  assert.equal(isHex('#abcdef'), true);
+  assert.equal(isHex('#abc'), false);
+});
+
+test('shiftHue rotates hue and preserves lightness', () => {
+  const shifted = shiftHue('#ff0000', 120);
+  assert.equal(shifted, '#00ff00');
+  assert.ok(Math.abs(hexToHsl(shifted).l - hexToHsl('#ff0000').l) < 0.01);
+});
+
+test('createRng is deterministic per seed', () => {
+  const a = createRng(42);
+  const b = createRng(42);
+  const seqA = [a(), a(), a()];
+  assert.deepEqual(seqA, [b(), b(), b()]);
+  assert.notEqual(createRng(43)(), seqA[0]);
+});
+
+/* ---------- palette extraction ---------- */
+
+function pixels(colors) {
+  return new Uint8ClampedArray(colors.flatMap(([rgb, count]) => Array.from({ length: count }, () => [...rgb, 255]).flat()));
+}
+
+test('extractPalette picks the dominant colour as bg and a vivid accent', () => {
+  const data = pixels([[[10, 12, 30], 900], [[255, 60, 120], 80], [[120, 120, 120], 20]]);
+  const theme = extractPalette(data);
+  assert.ok(isDark(theme.bg));
+  assert.ok(luminance(theme.text) > 0.7, 'text contrasts with a dark bg');
+  const { h, s } = hexToHsl(theme.accent);
+  assert.ok(s > 0.5 && (h > 300 || h < 20), `accent should be the pink, got ${theme.accent}`);
+});
+
+test('extractPalette gives dark text on light images and survives empty input', () => {
+  const light = extractPalette(pixels([[[240, 236, 228], 500], [[40, 90, 220], 60]]));
+  assert.ok(luminance(light.text) < 0.1);
+  assert.deepEqual(Object.keys(extractPalette(new Uint8ClampedArray(0))), ['bg', 'text', 'accent']);
+});
+
+/* ---------- handles ---------- */
+
+test('normalizeHandle cleans pasted profile URLs', () => {
+  assert.equal(normalizeHandle('linkedin', 'https://www.linkedin.com/in/dibyajyotikabi/'), 'in/dibyajyotikabi');
+  assert.equal(normalizeHandle('x', 'https://x.com/someone?s=20'), '@someone');
+  assert.equal(normalizeHandle('github', 'octocat'), '@octocat');
+  assert.equal(normalizeHandle('youtube', 'https://youtube.com/@channel'), '@channel');
+  assert.equal(normalizeHandle('website', 'https://www.example.com/'), 'example.com');
+  assert.equal(normalizeHandle('linkedin', '  '), '');
+});
+
+test('detectPlatform recognises profile URLs', () => {
+  assert.equal(detectPlatform('https://linkedin.com/in/abc'), 'linkedin');
+  assert.equal(detectPlatform('twitter.com/abc'), 'x');
+  assert.equal(detectPlatform('just a name'), null);
+});
+
+/* ---------- font suggestions ---------- */
+
+test('analyzeMood reads the intent of the text', () => {
+  assert.equal(analyzeMood('One UI 9 review — new features')[0].id, 'tech');
+  assert.equal(analyzeMood('How to invest your salary: $10k growth')[0].id, 'finance');
+  assert.equal(analyzeMood('A slow morning in the mountains, calm and mindful')[0].id, 'nature');
+  assert.equal(analyzeMood('Retro synthwave arcade')[0].id, 'retro');
+});
+
+test('suggestDirection is deterministic and respects available fonts', () => {
+  const a = suggestDirection('Apple M5 chip review', 7);
+  assert.deepEqual(a, suggestDirection('Apple M5 chip review', 7));
+  const onlyGeist = suggestDirection('Apple M5 chip review', 7, new Set(['geist', 'inter']));
+  assert.equal(onlyGeist.heading, 'geist');
+  assert.ok(MOODS[a.mood].heading.includes(a.heading));
+});
+
+test('suggestFonts returns unique ids limited to the catalog', () => {
+  const ids = suggestFonts('wedding fashion story', new Set(['playfair-display', 'fraunces', 'geist']), 5);
+  assert.ok(ids.includes('playfair-display'));
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.every((id) => ['playfair-display', 'fraunces', 'geist'].includes(id)));
+});
+
+test('nearestWeight snaps to shipped weights', () => {
+  assert.equal(nearestWeight({ weights: [400, 700] }, 600), 700);
+  assert.equal(nearestWeight({ weights: [400] }, 900), 400);
+  assert.equal(nearestWeight(null, 640), 600);
+});
+
+/* ---------- document model ---------- */
+
+test('createDocument is valid and survives sanitize', () => {
+  const doc = createDocument('pr1');
+  assert.deepEqual(sanitizeDocument(JSON.parse(JSON.stringify(doc))), doc);
+  assert.deepEqual(docSize(doc), SIZES.youtube);
+});
+
+test('sanitizeDocument rejects junk and clamps custom sizes', () => {
+  assert.equal(sanitizeDocument(null), null);
+  assert.equal(sanitizeDocument({ version: 1 }), null);
+  const doc = createDocument('pr1');
+  const bad = { ...doc, size: 'nope', custom: { width: 99999, height: -5 }, layers: [...doc.layers, { type: 'evil' }] };
+  const clean = sanitizeDocument(bad);
+  assert.equal(clean.size, 'youtube');
+  assert.deepEqual(clean.custom, { width: 4096, height: 64 });
+  assert.equal(clean.layers.length, doc.layers.length);
+});
+
+test('templates rebuild layers from existing content', () => {
+  const content = extractContent(createDocument('pr1').layers);
+  assert.equal(content.headline, 'One UI *9*');
+  assert.equal(content.kicker, 'Deep dive');
+  TEMPLATES.forEach((t) => {
+    const layers = t.build(content, ['pr1', 'pr2']);
+    assert.ok(layers.length > 0, t.id);
+    assert.equal(new Set(layers.map((l) => l.id)).size, layers.length, `${t.id} ids unique`);
+  });
+  const collab = TEMPLATES.find((t) => t.id === 'collab').build(content, ['pr1', 'pr2']);
+  assert.deepEqual(collab.filter((l) => l.type === 'profile').map((l) => l.profileId), ['pr1', 'pr2']);
+});
