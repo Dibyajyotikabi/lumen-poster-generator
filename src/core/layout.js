@@ -17,8 +17,30 @@ export function wrapLines(text, maxWidth, measure) {
   return trimBlankEdges(wrapped);
 }
 
+const SOFT_BREAK = /[/\-_.?&=]/;
+
+/**
+ * Splits a word that is wider than the line into pieces that fit, preferring to break right
+ * after '/', '-', '_', '.', '?', '&' or '=' (URLs, handles) and otherwise between characters.
+ */
+export function breakWord(word, maxWidth, measure) {
+  const pieces = [];
+  let rest = word;
+  while (rest && measure(rest) > maxWidth) {
+    let cut = 1;
+    while (cut < rest.length && measure(rest.slice(0, cut + 1)) <= maxWidth) cut += 1;
+    const soft = [...rest.slice(0, cut)].map((c, i) => (SOFT_BREAK.test(c) ? i + 1 : 0)).filter((i) => i >= cut * 0.5).pop();
+    const at = soft ?? cut;
+    pieces.push(rest.slice(0, at));
+    rest = rest.slice(at);
+  }
+  if (rest) pieces.push(rest);
+  return pieces;
+}
+
 // Linear-time greedy wrap; builds a fresh local array (no shared state is mutated).
-function wrapWords(words, maxWidth, measure) {
+function wrapWords(allWords, maxWidth, measure) {
+  const words = allWords.flatMap((w) => (measure(w) > maxWidth ? breakWord(w, maxWidth, measure) : [w]));
   const lines = [];
   let current = words[0];
   for (const word of words.slice(1)) {

@@ -3,7 +3,7 @@ import { createBackgroundCache, paintBackground } from './background.js';
 import { makeCanvas } from './effects.js';
 import { layoutText, drawText, roundRectPath } from './text.js';
 import { drawProfileLayer } from './profile.js';
-import { drawLinkLayer } from './linkcard.js';
+import { drawLinkLayer } from './link/index.js';
 import { rgba } from '../core/color.js';
 
 const PLACEHOLDER_ASPECT = 0.62;
@@ -91,9 +91,9 @@ export function createRenderer(images) {
         const img = profile?.photoAssetId ? images.get(`asset:${profile.photoAssetId}`) : null;
         boxes.set(layer.id, drawProfileLayer(ctx, layer, profile, img, env));
       } else if (layer.type === 'link') {
-        const image = layer.imageAssetId ? images.get(`asset:${layer.imageAssetId}`) : null;
-        const icon = layer.iconAssetId ? images.get(`asset:${layer.iconAssetId}`) : null;
-        boxes.set(layer.id, drawLinkLayer(ctx, layer, image, icon, env));
+        const get = (id) => (id ? images.get(`asset:${id}`) : null);
+        const assets = { image: get(layer.imageAssetId), icon: get(layer.iconAssetId), avatar: get(layer.avatarAssetId), media: (layer.mediaAssetIds ?? []).map(get) };
+        boxes.set(layer.id, drawLinkLayer(ctx, layer, assets, env));
       } else if (layer.type === 'image') {
         boxes.set(layer.id, drawImageLayer(ctx, layer, images.get(`asset:${layer.assetId}`), env));
       }

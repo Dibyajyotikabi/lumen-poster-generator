@@ -1,6 +1,7 @@
 // Link unfurling: fetch a public page safely and extract its preview metadata (Open Graph etc.).
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
+import { providerPreview } from './providers.js';
 
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140 Safari/537.36 LumenStudio/2';
 const MAX_REDIRECTS = 5;
@@ -167,11 +168,14 @@ export function parseMeta(html, base) {
 
 /** Unfurls a link. Direct image links are returned as an image-only preview. */
 export async function unfurl(raw) {
+  const target = await assertPublicUrl(raw);
+  const rich = await providerPreview(target.href, safeFetch);
+  if (rich) return rich;
   const { url, type, body } = await safeFetch(raw, { accept: 'text/html,application/xhtml+xml,image/*;q=0.8,*/*;q=0.5', maxBytes: MAX_HTML_BYTES });
   if (type.startsWith('image/')) {
     const name = decodeURIComponent(url.pathname.split('/').pop() || url.hostname);
-    return { url: url.href, domain: url.hostname.replace(/^www\./, ''), title: name, description: '', siteName: '', image: url.href, fallbackImage: null, icon: null, themeColor: null };
+    return { kind: 'image', url: url.href, domain: url.hostname.replace(/^www\./, ''), title: name, description: '', siteName: '', image: url.href, fallbackImage: null, icon: null, themeColor: null };
   }
   if (!/html|xml/.test(type)) throw Object.assign(new Error('That link isn’t a web page or image'), { status: 415 });
-  return parseMeta(body.toString('utf8'), url.href);
+  return { kind: 'article', ...parseMeta(body.toString('utf8'), url.href) };
 }

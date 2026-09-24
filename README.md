@@ -10,7 +10,11 @@ A fast, local studio for YouTube thumbnails, blog featured images, LinkedIn bann
 - **Generated backgrounds** — 12 light styles (aura, spotlight, rays, eclipse, blur, aurora, waves, rings, halftone, grid, mesh, plain) with grain and vignette.
 - **Wallpaper & images** — use your macOS wallpaper, the macOS wallpaper library, or any uploaded / pasted / dropped image, with blur, dim, zoom and colour matching.
 - **Background removal** — one click removes the background (U²-Net), then click to keep the product or remove a hand, text or logo (SlimSAM). Runs privately in your browser; nothing is uploaded.
-- **Links** — paste any link (⌘V): the page's image becomes a soft, blurred backdrop with matched colours, plus a beautiful link card (card, compact or minimal). Works with articles, YouTube, GitHub and more.
+- **Links** — paste any link (⌘V) and it's shown beautifully on a soft, blurred backdrop with matched colours:
+  - **X / Twitter posts** — full text (never cut), author, verified badge, photos (1–4, side-by-side on wide canvases), quotes, date and stats; Light, Dim, Dark or Glass.
+  - **YouTube** — video card with play button, title and channel.
+  - **Articles, GitHub and any site** — Card, Hero, Compact or Pill designs.
+  - Cards auto-fit the canvas: long content reflows wider, then scales — nothing is ever cropped.
 - **Profiles** — save multiple people (LinkedIn, X, GitHub, YouTube, Instagram, website) with photos; show them as chip, card, hero or avatar.
 - **Text effects** — shadow, glow, outline, 3D, fade, pill and marker backgrounds.
 - **Layouts, undo/redo, export** — one-click layouts, 9 size presets + custom, PNG/JPG/WebP at 1× or 2×.

@@ -130,11 +130,31 @@ export function createImageLayer(assetId, overrides = {}) {
   };
 }
 
-export const LINK_VARIANTS = [
-  { id: 'card', label: 'Card' },
-  { id: 'compact', label: 'Compact' },
-  { id: 'minimal', label: 'Minimal' },
+export const LINK_VARIANTS = {
+  tweet: [{ id: 'tweet', label: 'Post' }],
+  video: [
+    { id: 'video', label: 'Video' },
+    { id: 'hero', label: 'Hero' },
+    { id: 'card', label: 'Card' },
+    { id: 'compact', label: 'Compact' },
+    { id: 'minimal', label: 'Pill' },
+  ],
+  article: [
+    { id: 'card', label: 'Card' },
+    { id: 'hero', label: 'Hero' },
+    { id: 'compact', label: 'Compact' },
+    { id: 'minimal', label: 'Pill' },
+  ],
+};
+
+export const CARD_THEMES = [
+  { id: 'auto', label: 'Glass' },
+  { id: 'light', label: 'Light' },
+  { id: 'dim', label: 'Dim' },
+  { id: 'dark', label: 'Dark' },
 ];
+
+export const DEFAULT_LINK_VARIANT = { tweet: 'tweet', video: 'video', article: 'card', image: 'hero' };
 
 export function createLinkLayer(preview, overrides = {}) {
   return {
@@ -142,14 +162,23 @@ export function createLinkLayer(preview, overrides = {}) {
     type: 'link',
     visible: true,
     locked: false,
+    kind: preview.kind ?? 'article',
     url: preview.url,
     domain: preview.domain,
+    author: preview.author ?? null,
+    tweet: preview.tweet ? { ...preview.tweet, author: { ...preview.tweet.author, avatar: undefined } } : null,
+    avatarAssetId: null,
+    mediaAssetIds: [],
+    cardTheme: preview.kind === 'tweet' ? 'light' : 'auto',
+    showStats: true,
+    showDate: true,
+    showMedia: true,
     siteName: preview.siteName ?? '',
     title: preview.title ?? preview.domain,
     description: preview.description ?? '',
     imageAssetId: null,
     iconAssetId: null,
-    variant: 'card',
+    variant: DEFAULT_LINK_VARIANT[preview.kind] ?? 'card',
     showDescription: true,
     cx: 0.5,
     cy: 0.5,

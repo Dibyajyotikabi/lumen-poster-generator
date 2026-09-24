@@ -30,6 +30,7 @@ function themeFromImage(img) {
   return extractPalette(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
 }
 const LINK_BACKDROP = { blur: 1, dim: 0.3, zoom: 1.2 };
+const X_THEME = { bg: '#0b0d12', text: '#f7f9f9', accent: '#1d9bf0' };
 
 export function createActions({ store, images, render, cutout }) {
   const current = () => store.get();
@@ -116,36 +117,52 @@ export function createActions({ store, images, render, cutout }) {
 
     /**
      * Fetches a link's preview and shows it beautifully: the page image becomes a soft, blurred
-     * backdrop (colours matched to it) and a crisp link card is placed on top.
+     * backdrop (colours matched to it) and a designed card (post, video or article) sits on top.
+     * One undo step restores everything.
      */
     async importLink(url, { background = true, card = true } = {}) {
       toast('Fetching link…');
       try {
         const preview = await fetchLinkPreview(url);
-        const [imageFile, iconFile] = await Promise.all([
-          fetchRemoteImage(preview.image).then((f) => f ?? fetchRemoteImage(preview.fallbackImage)),
-          fetchRemoteImage(preview.icon),
+        const tweet = preview.tweet;
+        const storeRemote = async (src, fallback) => {
+          const file = (await fetchRemoteImage(src)) ?? (fallback ? await fetchRemoteImage(fallback) : null);
+          if (!file) return null;
+          const id = await putAsset(file).catch(() => null);
+          if (id) await images.whenReady(`asset:${id}`);
+          return id;
+        };
+        const [imageAssetId, iconAssetId, avatarAssetId, mediaAssetIds] = await Promise.all([
+          tweet ? null : storeRemote(preview.image, preview.fallbackImage),
+          preview.kind === 'article' ? storeRemote(preview.icon) : null,
+          tweet ? storeRemote(tweet.author.avatar) : null,
+          tweet ? Promise.all(tweet.media.map((m) => storeRemote(m.url))).then((ids) => ids.filter(Boolean)) : [],
         ]);
-        const [imageAssetId, iconAssetId] = await Promise.all([imageFile ? putAsset(imageFile) : null, iconFile ? putAsset(iconFile).catch(() => null) : null]);
-        const [image] = await Promise.all([imageAssetId, iconAssetId].map((id) => (id ? images.whenReady(`asset:${id}`) : null)));
+        const backdropId = imageAssetId ?? mediaAssetIds?.[0] ?? null;
+        const backdrop = backdropId ? images.get(`asset:${backdropId}`) : null;
+
         const { doc } = current();
         let next = doc;
-        if (background && image) {
-          next = { ...next, background: { ...next.background, source: 'upload', assetId: imageAssetId, ...LINK_BACKDROP, effectOnImage: false }, theme: themeFromImage(image) };
+        if (background && backdrop) {
+          next = { ...next, background: { ...next.background, source: 'upload', assetId: backdropId, ...LINK_BACKDROP, effectOnImage: false }, theme: themeFromImage(backdrop) };
+        } else if (background && tweet) {
+          next = { ...next, background: { ...next.background, source: 'generated', style: 'aura', seed: randomSeed() }, theme: X_THEME };
         } else if (background && preview.themeColor) {
           next = { ...next, theme: { ...next.theme, accent: preview.themeColor } };
         }
         let cardId = null;
         if (card) {
-          // Showcase layout: keep people, give the card the stage.
-          const people = doc.layers.filter((l) => l.type === 'profile').map((l) => ({ ...l, cy: 0.87 }));
-          const cardLayer = createLinkLayer(preview, { imageAssetId, iconAssetId, variant: imageAssetId ? 'card' : 'compact', cy: people.length ? 0.44 : 0.5 });
+          // Showcase layout: keep people, give the card the stage. Cards auto-fit, so nothing is cut.
+          const people = doc.layers.filter((l) => l.type === 'profile').map((l) => ({ ...l, cy: 0.9 }));
+          const width = { tweet: 0.5, video: 0.5, article: 0.46, image: 0.5 }[preview.kind] ?? 0.46;
+          const cardLayer = createLinkLayer(preview, { imageAssetId, iconAssetId, avatarAssetId, mediaAssetIds, width, cy: people.length ? 0.45 : 0.5 });
           next = { ...next, layers: [...people, cardLayer] };
           cardId = cardLayer.id;
         }
-        store.commit(next); // one undo step restores everything
+        store.commit(next);
         if (cardId) store.select(cardId);
-        toast(`Added ${preview.siteName || preview.domain}${imageAssetId ? '' : ' (no preview image found)'} · ⌘Z to undo`);
+        const name = tweet ? `@${tweet.author.handle}` : preview.siteName || preview.domain;
+        toast(`Added ${name} · ⌘Z to undo`);
         return preview;
       } catch (err) {
         console.warn('[lumen] link import failed', err);
@@ -158,16 +175,18 @@ export function createActions({ store, images, render, cutout }) {
     useLinkTitle(id) {
       const link = layerById(id);
       if (link?.type !== 'link') return;
+      const title = link.kind === 'tweet' ? link.tweet?.text ?? link.description : link.title;
       const headline = [...current().doc.layers].filter((l) => l.type === 'text').sort((a, b) => b.size - a.size)[0];
-      if (headline) store.updateLayer(headline.id, { text: link.title });
-      else actions.addText({ text: link.title, size: 54, cy: 0.12, width: 0.86, lineHeight: 1.08 });
+      if (headline) store.updateLayer(headline.id, { text: title });
+      else actions.addText({ text: title, size: 54, cy: 0.12, width: 0.86, lineHeight: 1.08 });
     },
 
     async linkImageAsBackground(id) {
       const link = layerById(id);
-      if (!link?.imageAssetId) return toast('This link has no preview image');
-      store.updateBackground({ source: 'upload', assetId: link.imageAssetId, ...LINK_BACKDROP });
-      await images.whenReady(`asset:${link.imageAssetId}`);
+      const assetId = link?.imageAssetId ?? link?.mediaAssetIds?.[0];
+      if (!assetId) return toast('This link has no image to use');
+      store.updateBackground({ source: 'upload', assetId, ...LINK_BACKDROP });
+      await images.whenReady(`asset:${assetId}`);
       actions.matchImageColors();
     },
 
@@ -251,7 +270,11 @@ export function createActions({ store, images, render, cutout }) {
       const state = current();
       const key = imageKeyFor(state.doc.background);
       const assetKeys = state.doc.layers.flatMap((l) =>
-        l.type === 'image' ? [`asset:${l.assetId}`] : l.type === 'link' ? [l.imageAssetId, l.iconAssetId].filter(Boolean).map((id) => `asset:${id}`) : [],
+        l.type === 'image'
+          ? [`asset:${l.assetId}`]
+          : l.type === 'link'
+            ? [l.imageAssetId, l.iconAssetId, l.avatarAssetId, ...(l.mediaAssetIds ?? [])].filter(Boolean).map((id) => `asset:${id}`)
+            : [],
       );
       const photoKeys = state.profiles.filter((p) => p.photoAssetId).map((p) => `asset:${p.photoAssetId}`);
       const fonts = state.doc.layers.filter((l) => l.type === 'text').map((l) => l.font);

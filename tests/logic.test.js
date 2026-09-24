@@ -177,3 +177,13 @@ test('templates rebuild layers from existing content', () => {
   const collab = TEMPLATES.find((t) => t.id === 'collab').build(content, ['pr1', 'pr2']);
   assert.deepEqual(collab.filter((l) => l.type === 'profile').map((l) => l.profileId), ['pr1', 'pr2']);
 });
+
+test('wrapLines hard-breaks words that are wider than the line, preferring URL separators', async () => {
+  const { breakWord } = await import('../src/core/layout.js');
+  const measure = (s) => s.length * 10;
+  const lines = wrapLines('see github.com/Dibyajyotikabi/lumen-poster-generator now', 150, measure);
+  lines.forEach((l) => assert.ok(measure(l) <= 150, `"${l}" fits`));
+  assert.equal(lines.join('').replace(/\s/g, ''), 'seegithub.com/Dibyajyotikabi/lumen-poster-generatornow');
+  assert.deepEqual(breakWord('abcdefghij', 40, measure), ['abcd', 'efgh', 'ij']);
+  assert.deepEqual(breakWord('aaa/bbbbbb', 60, measure), ['aaa/', 'bbbbbb']);
+});
