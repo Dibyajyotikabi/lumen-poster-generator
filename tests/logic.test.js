@@ -1,14 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { wrapLines, fitText, slugify } from '../src/core/layout.js';
+import { wrapLines, fitText, fitTextBlock, slugify } from '../src/core/layout.js';
 import { hexToRgb, rgbToHex, mix, isDark, shiftHue, hexToHsl, isHex, luminance } from '../src/core/color.js';
 import { createRng } from '../src/core/random.js';
 import { normalizeHandle, detectPlatform } from '../src/core/handles.js';
 import { extractPalette } from '../src/core/extract-palette.js';
 import { analyzeMood, suggestDirection, suggestFonts, MOODS } from '../src/fonts/suggest.js';
 import { nearestWeight } from '../src/fonts/catalog.js';
-import { createDocument, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
+import { createDocument, createTextLayer, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
 import { TEMPLATES, extractContent } from '../src/app/templates.js';
+import { layoutText } from '../src/render/text.js';
 
 // Fake metric: every character is half the font size wide.
 const measureAt = (str, size) => str.length * size * 0.5;
@@ -44,6 +45,59 @@ test('fitText returns the largest size that fits the box', () => {
 test('fitText falls back to minSize when nothing fits', () => {
   const fit = fitText({ text: 'x'.repeat(50), maxWidth: 10, maxHeight: 10, minSize: 12, maxSize: 40, lineHeight: 1, maxLines: 1, measureAt });
   assert.equal(fit.size, 12);
+});
+
+test('fitTextBlock keeps long text within the available height without dropping words', () => {
+  const text = 'A longer paragraph needs room to breathe while keeping every word visible in the final poster.';
+  const fit = fitTextBlock({ text, maxWidth: 180, maxHeight: 120, maxSize: 60, lineHeight: 1.16, measureAt });
+  assert.ok(fit.size < 60);
+  assert.ok(fit.lines.length * fit.size * 1.16 <= 120);
+  assert.equal(fit.lines.join(' '), text);
+  assert.ok(fit.lines.every((line) => measureAt(line, fit.size) <= 180));
+});
+
+test('fitTextBlock balances a short final line without changing the line count', () => {
+  const text = 'The quick brown fox jumps over the lazy dog';
+  const greedy = wrapLines(text, 22, (s) => s.length);
+  const fit = fitTextBlock({ text, maxWidth: 22, maxHeight: 10, maxSize: 1, lineHeight: 1, measureAt: (s, size) => s.length * size });
+  assert.equal(fit.lines.length, greedy.length);
+  assert.equal(fit.lines.join(' '), text);
+  assert.ok(fit.lines.at(-1).length > greedy.at(-1).length);
+});
+
+test('auto-fit text stays inside the canvas even near an edge', async () => {
+  const previousDocument = globalThis.document;
+  const previousFontFace = globalThis.FontFace;
+  globalThis.document = { fonts: { add() {} } };
+  globalThis.FontFace = class { load() { return Promise.resolve(this); } };
+  try {
+    const ctx = {
+      font: '',
+      letterSpacing: '0px',
+      measureText(value) {
+        const size = Number(this.font.match(/([\d.]+)px/)[1]);
+        return { width: value.length * (size * 0.5 + Number.parseFloat(this.letterSpacing)) };
+      },
+    };
+    const layer = createTextLayer({
+      text: 'A long passage should remain safely inside the poster even when its anchor sits near a corner.',
+      autoFit: true,
+      size: 110,
+      width: 1.5,
+      cx: 0.95,
+      cy: 0.95,
+    });
+    const fitted = layoutText(ctx, layer, 1280, 720, 1);
+    assert.ok(fitted.box.x >= 1280 * 0.06);
+    assert.ok(fitted.box.x + fitted.box.w <= 1280 * 0.94 + 0.001);
+    assert.ok(fitted.box.y >= 720 * 0.07);
+    assert.ok(fitted.box.y + fitted.box.h <= 720 * 0.93 + 0.001);
+    assert.equal(fitted.lines.join(' '), layer.text);
+  } finally {
+    await Promise.resolve();
+    globalThis.document = previousDocument;
+    globalThis.FontFace = previousFontFace;
+  }
 });
 
 test('slugify produces safe file names', () => {

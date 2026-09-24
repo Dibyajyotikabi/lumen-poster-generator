@@ -1,5 +1,5 @@
 import { rgba, mix } from '../core/color.js';
-import { wrapLines } from '../core/layout.js';
+import { fitTextBlock, wrapLines } from '../core/layout.js';
 import { ensureFont } from '../fonts/loader.js';
 
 const MARK = '*';
@@ -27,19 +27,50 @@ export function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/** Measures and wraps a text layer. Box is centred on (cx, cy). */
+/** Measures and wraps a text layer; auto-fit boxes stay within the canvas margins. */
 export function layoutText(ctx, layer, W, H, u) {
-  const size = Math.max(1, layer.size * u);
+  let size = Math.max(1, layer.size * u);
   const face = ensureFont(layer.font);
-  applyFont(ctx, face, size, layer.tracking);
   const text = layer.uppercase ? layer.text.toUpperCase() : layer.text;
-  const maxWidth = Math.max(size, layer.width * W);
+  const marginX = W * 0.06;
+  const marginY = H * 0.07;
+  const maxWidth = layer.autoFit
+    ? Math.max(1, Math.min(layer.width * W, W - marginX * 2))
+    : Math.max(size, layer.width * W);
+  const lineHeight = layer.autoFit && (text.length > 80 || text.split('\n').length > 2)
+    ? Math.max(layer.lineHeight, 1.16)
+    : layer.lineHeight;
+  let lines;
+  if (layer.autoFit) {
+    const fitted = fitTextBlock({
+      text,
+      maxWidth,
+      maxHeight: H - marginY * 2,
+      maxSize: size,
+      lineHeight,
+      measureAt: (s, atSize) => {
+        applyFont(ctx, face, atSize, layer.tracking);
+        return ctx.measureText(stripMarks(s)).width;
+      },
+    });
+    size = fitted.size;
+    lines = fitted.lines;
+  } else {
+    applyFont(ctx, face, size, layer.tracking);
+    lines = wrapLines(text, maxWidth, (s) => ctx.measureText(stripMarks(s)).width);
+  }
+  applyFont(ctx, face, size, layer.tracking);
   const measure = (s) => ctx.measureText(stripMarks(s)).width;
-  const lines = wrapLines(text, maxWidth, measure);
   const widths = lines.map(measure);
-  const lineH = size * layer.lineHeight;
+  const lineH = size * lineHeight;
   const boxH = Math.max(lineH, lines.length * lineH);
-  const box = { x: layer.cx * W - maxWidth / 2, y: layer.cy * H - boxH / 2, w: maxWidth, h: boxH };
+  const x = layer.autoFit
+    ? Math.max(marginX, Math.min(W - marginX - maxWidth, layer.cx * W - maxWidth / 2))
+    : layer.cx * W - maxWidth / 2;
+  const y = layer.autoFit
+    ? Math.max(marginY, Math.min(H - marginY - boxH, layer.cy * H - boxH / 2))
+    : layer.cy * H - boxH / 2;
+  const box = { x, y, w: maxWidth, h: boxH };
   return { face, size, lines, widths, lineH, box };
 }
 

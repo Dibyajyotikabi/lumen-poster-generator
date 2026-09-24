@@ -82,6 +82,7 @@ export function createTextLayer(overrides = {}) {
     cy: 0.5,
     width: 0.8,
     size: 110,
+    autoFit: false,
     font: { ...DEFAULT_FONT },
     color: null, // null → follows theme text colour
     align: 'center',

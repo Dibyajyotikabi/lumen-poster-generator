@@ -83,6 +83,52 @@ export function fitText({ text, maxWidth, maxHeight, minSize, maxSize, lineHeigh
   return best ?? { size: Math.floor(minSize), lines: layoutAt(minSize).slice(0, maxLines) };
 }
 
+/** Fits every line of an editable text layer, then evens out ragged line lengths. */
+export function fitTextBlock({ text, maxWidth, maxHeight, maxSize, lineHeight, measureAt }) {
+  const layoutAt = (size, width = maxWidth) => wrapLines(text, width, (s) => measureAt(s, size));
+  const fits = (size, lines) => lines.length * size * lineHeight <= maxHeight;
+  let size = maxSize;
+  let lines = layoutAt(size);
+
+  if (!fits(size, lines)) {
+    let lo = 0.01;
+    let hi = size;
+    size = lo;
+    lines = layoutAt(size);
+    for (let i = 0; i < 18; i += 1) {
+      const mid = (lo + hi) / 2;
+      const candidate = layoutAt(mid);
+      if (fits(mid, candidate)) {
+        size = mid;
+        lines = candidate;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+  }
+
+  if (lines.length > 1) {
+    const score = (candidate) => {
+      const widths = candidate.filter(Boolean).map((line) => measureAt(line, size));
+      const mean = widths.reduce((sum, width) => sum + width, 0) / widths.length;
+      return widths.reduce((sum, width) => sum + (width - mean) ** 2, 0);
+    };
+    let bestScore = score(lines);
+    for (const fraction of [0.95, 0.9, 0.85, 0.8, 0.75]) {
+      const candidate = layoutAt(size, maxWidth * fraction);
+      if (candidate.length !== lines.length) continue;
+      const candidateScore = score(candidate);
+      if (candidateScore < bestScore) {
+        lines = candidate;
+        bestScore = candidateScore;
+      }
+    }
+  }
+
+  return { size, lines };
+}
+
 export function slugify(text, fallback = 'thumbnail') {
   const slug = String(text)
     .toLowerCase()

@@ -44,7 +44,7 @@ export function createActions({ store, images, render, cutout }) {
 
   const actions = {
     addText(overrides = {}) {
-      return insertLayer(createTextLayer({ text: 'New text', size: 64, cy: 0.5, width: 0.6, ...overrides }));
+      return insertLayer(createTextLayer({ text: 'New text', size: 64, cy: 0.5, width: 0.78, autoFit: true, ...overrides }));
     },
 
     addProfile(profileId = current().profiles[0]?.id) {

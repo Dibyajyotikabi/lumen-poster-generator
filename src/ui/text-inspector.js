@@ -80,6 +80,7 @@ export function buildTextInspector(deps, id) {
   /* ---------- controls ---------- */
   const weight = slider({ label: 'Weight', min: 100, max: 900, step: 100, value: initial.font.weight, onInput: (v) => update({ font: { ...layerOf(store.get(), id).font, weight: v } }, 'weight') });
   const size = slider({ label: 'Size', min: 6, max: 480, step: 1, value: initial.size, format: (v) => `${Math.round(v)}`, onInput: (v) => update({ size: v }, 'size') });
+  const autoFit = toggle({ label: 'Auto fit', value: initial.autoFit ?? false, onChange: (v) => update({ autoFit: v }) });
   const width = slider({ label: 'Box width', min: 0.05, max: 1.5, step: 0.005, value: initial.width, format: pct, onInput: (v) => update({ width: v }, 'width') });
   const lineHeight = slider({ label: 'Line height', min: 0.7, max: 2.2, step: 0.01, value: initial.lineHeight, format: (v) => v.toFixed(2), onInput: (v) => update({ lineHeight: v }, 'lh') });
   const tracking = slider({ label: 'Letter spacing', min: -0.12, max: 0.5, step: 0.005, value: initial.tracking, format: (v) => `${Math.round(v * 1000)}`, onInput: (v) => update({ tracking: v }, 'tracking') });
@@ -101,7 +102,7 @@ export function buildTextInspector(deps, id) {
     layerHeader('Text', id, deps),
     section('Content', text.el, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' No length limit · Enter for new lines · ', h('code', {}, '*word*'), ' highlights')),
     section('Typeface', fontButton, h('div', { class: 'suggest-head' }, moodLabel), suggestions, weight.el, h('div', { class: 'switch-row' }, italic.el, upper.el, fade.el)),
-    section('Layout', size.el, width.el, align.el, lineHeight.el, tracking.el),
+    section('Layout', autoFit.el, h('p', { class: 'hint-line' }, 'Balances long text and keeps it inside the canvas. Size is the upper limit.'), size.el, width.el, align.el, lineHeight.el, tracking.el),
     section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, opacity.el),
   );
 
@@ -125,6 +126,7 @@ export function buildTextInspector(deps, id) {
       weight.set(layer.font.weight);
       text.set(layer.text);
       size.set(layer.size);
+      autoFit.set(layer.autoFit ?? false);
       width.set(layer.width);
       lineHeight.set(layer.lineHeight);
       tracking.set(layer.tracking);
