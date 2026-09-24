@@ -65,6 +65,20 @@ export function createActions({ store, images, render, cutout }) {
       }
     },
 
+    async addSticker(sticker) {
+      try {
+        const res = await fetch(sticker.src);
+        if (!res.ok) throw new Error('Could not load that sticker');
+        const blob = await res.blob();
+        const assetId = await putAsset(new File([blob], `${sticker.id}.webp`, { type: 'image/webp' }));
+        await images.whenReady(`asset:${assetId}`);
+        const n = current().doc.layers.length;
+        insertLayer(createImageLayer(assetId, { width: 0.13, radius: 0, shadow: false, cx: 0.78 - (n % 4) * 0.04, cy: 0.28 + (n % 4) * 0.05 }));
+      } catch (err) {
+        toast(err.message || 'Could not add that sticker');
+      }
+    },
+
     duplicate(id = current().selection) {
       const layer = layerById(id);
       if (!layer) return;

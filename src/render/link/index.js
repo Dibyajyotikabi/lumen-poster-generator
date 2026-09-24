@@ -1,6 +1,7 @@
 // Link layer entry point: picks the design and makes sure it always fits on the canvas.
 import { CARD_LAYOUTS, CARD_NOMINAL } from './cards.js';
 import { layoutTweet, TWEET_NOMINAL } from './tweet.js';
+import { EXTRA_LAYOUTS, EXTRA_NOMINAL } from './cards-extra.js';
 
 const MAX_HEIGHT = 0.92; // of canvas height
 const MAX_WIDTH = 0.94;
@@ -14,6 +15,9 @@ const SHRINK_PASSES = 12;
 const LAYOUTS = {
   ...Object.fromEntries(Object.entries(CARD_LAYOUTS).map(([id, layout]) => [id, { layout, nominal: CARD_NOMINAL, reflow: id === 'compact' || id === 'minimal' }])),
   tweet: { layout: layoutTweet, nominal: TWEET_NOMINAL, reflow: true },
+  browser: { layout: EXTRA_LAYOUTS.browser, nominal: EXTRA_NOMINAL, reflow: false },
+  headline: { layout: EXTRA_LAYOUTS.headline, nominal: EXTRA_NOMINAL, reflow: true },
+  quote: { layout: EXTRA_LAYOUTS.quote, nominal: EXTRA_NOMINAL, reflow: true },
 };
 
 /**
