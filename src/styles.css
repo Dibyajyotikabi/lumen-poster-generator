@@ -566,3 +566,20 @@ dialog[open] { animation: rise var(--dur) var(--ease); }
 .link-source { display: inline-flex; max-width: 100%; overflow: hidden; color: var(--signal); font: 500 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
 .link-source:hover { text-decoration: underline; text-underline-offset: 3px; }
 .link-source::after { content: " ↗"; }
+
+/* ---------- rail tabs, boxes & stickers ---------- */
+.rail-tabs { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 0 -14px; padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.rail-tab { padding: 7px 4px; border: 0; border-radius: var(--radius-s); background: transparent; color: var(--muted); font: 500 11.5px/1 var(--font-ui); cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast); }
+.rail-tab:hover { color: var(--ink); background: var(--track); }
+.rail-tab[aria-selected="true"] { color: var(--field); background: var(--ink); }
+.rail-tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.rail-panels .group:last-child { border-bottom: 1px dashed var(--line-strong); }
+.sticker-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.sticker-add { display: grid; place-items: center; aspect-ratio: 1; padding: 4px; border: 1px solid transparent; border-radius: var(--radius-s); background: var(--field); cursor: pointer; transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast); }
+.sticker-add img { width: 100%; height: 100%; object-fit: contain; }
+.sticker-add:hover { transform: translateY(-2px) scale(1.06); border-color: var(--line-strong); box-shadow: var(--shadow-lift); }
+.sticker-add:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.tpl-box-post::before { left: 16%; right: 16%; top: 16%; bottom: 16%; height: auto; background: #fff; border-radius: 4px; opacity: 1; box-shadow: 0 4px 10px rgba(0,0,0,.4); }
+.tpl-box-post::after { left: 26%; right: 26%; top: 44%; height: 6px; background: #17160f; }
+.tpl-brutal::before { left: 14%; right: 18%; top: 16%; bottom: 20%; height: auto; background: #ffd84d; border: 2px solid #111; box-shadow: 4px 4px 0 #111; opacity: 1; }
+.tpl-brutal::after { left: 22%; width: 40%; top: 40%; height: 6px; background: #111; }

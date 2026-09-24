@@ -1,9 +1,10 @@
 import { h, icon, pickFile } from './dom.js';
 import { TEMPLATES } from '../app/templates.js';
-import { DECORATIVE_ELEMENTS, EDITORIAL_ELEMENTS, ELEMENTS } from '../app/model.js';
+import { DECORATIVE_ELEMENTS, EDITORIAL_ELEMENTS, ELEMENTS, SHAPE_ELEMENTS } from '../app/model.js';
+import { STICKERS } from '../app/stickers.js';
 
 const TYPE_ICON = { text: 'text', profile: 'user', image: 'image', link: 'link', element: 'sparkle' };
-const ELEMENT_GLYPHS = { bar: '▰', rule: '━•', number: '01', quote: '“”', arrow: '➜', dots: '•••', voxels: '▦', bracket: '⌜⌟', 'paper-scrap': '▧', 'cracked-paper': '◩', 'washi-tape': '▱', scribble: '〰', swirl: '➰', cat: '🐱', bird: '🐦', flower: '✿', sparkles: '✦', heart: '♥' };
+const ELEMENT_GLYPHS = { bar: '▰', rule: '━•', number: '01', quote: '“”', arrow: '➜', dots: '•••', voxels: '▦', bracket: '⌜⌟', 'paper-scrap': '▧', 'cracked-paper': '◩', 'washi-tape': '▱', scribble: '〰', swirl: '➰', cat: '🐱', bird: '🐦', flower: '✿', sparkles: '✦', heart: '♥', 'post-card': '▢', box: '■', 'box-outline': '□', 'brutal-box': '▣', 'glass-box': '◫', 'pill-shape': '⬭', circle: '●', speech: '💬', 'star-burst': '✸', line: '―' };
 const NAME_LIMIT = 28;
 
 function layerName(layer, profiles) {
@@ -50,12 +51,33 @@ export function mountRail(root, { store, actions, focusLink }) {
   const list = h('ol', { class: 'layer-list', 'aria-label': 'Layers (top first)' });
   const bgRow = h('button', { type: 'button', class: 'layer-row layer-bg', onclick: () => store.select(null) }, icon('palette', 14), h('span', { class: 'layer-name' }, 'Background'));
 
+  const stickerGrid = h('div', { class: 'sticker-grid' },
+    STICKERS.map((sticker) => h('button', {
+      type: 'button', class: 'sticker-add', title: `Add ${sticker.emoji} sticker`, 'aria-label': `Add ${sticker.emoji} sticker`,
+      onclick: () => actions.addSticker(sticker),
+    }, h('img', { src: sticker.src, alt: '', loading: 'lazy', width: 40, height: 40 }))));
+
+  const group = (title, ...children) => h('section', { class: 'group' }, h('h3', { class: 'group-title' }, title), ...children);
+  const TABS = [
+    { id: 'add', label: 'Add', panel: [group('Add', addRow), group('Layouts', templates)] },
+    { id: 'shapes', label: 'Boxes', panel: [group('Boxes & shapes', elementGrid(SHAPE_ELEMENTS)), group('Vox-style', elementGrid(EDITORIAL_ELEMENTS))] },
+    { id: 'stickers', label: 'Stickers', panel: [group('3D stickers', stickerGrid), group('Illustrated', elementGrid(DECORATIVE_ELEMENTS.filter((entry) => entry.group === 'stickers')))] },
+    { id: 'paper', label: 'Paper', panel: [group('Paper & doodles', elementGrid(DECORATIVE_ELEMENTS.filter((entry) => entry.group === 'paper')))] },
+  ];
+  const panels = TABS.map((tab) => h('div', { class: 'rail-panel', role: 'tabpanel', dataset: { tab: tab.id } }, ...tab.panel));
+  const tabButtons = TABS.map((tab) => h('button', { type: 'button', class: 'rail-tab', role: 'tab', dataset: { tab: tab.id }, onclick: () => showTab(tab.id) }, tab.label));
+  function showTab(id) {
+    tabButtons.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+    panels.forEach((p) => { p.hidden = p.dataset.tab !== id; });
+    try { localStorage.setItem('lumen:rail-tab', id); } catch { /* storage unavailable */ }
+  }
+  let savedTab = 'add';
+  try { savedTab = localStorage.getItem('lumen:rail-tab') || 'add'; } catch { /* storage unavailable */ }
+  showTab(TABS.some((t) => t.id === savedTab) ? savedTab : 'add');
+
   root.append(
-    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Add'), addRow),
-    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Vox-style elements'), elementGrid(EDITORIAL_ELEMENTS)),
-    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Paper & doodles'), elementGrid(DECORATIVE_ELEMENTS.filter((entry) => entry.group === 'paper'))),
-    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Cute stickers'), elementGrid(DECORATIVE_ELEMENTS.filter((entry) => entry.group === 'stickers'))),
-    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Layouts'), templates),
+    h('div', { class: 'rail-tabs', role: 'tablist' }, ...tabButtons),
+    h('div', { class: 'rail-panels' }, ...panels),
     h('section', { class: 'group group-layers' }, h('h3', { class: 'group-title' }, 'Layers'), list, bgRow),
   );
 

@@ -1,4 +1,4 @@
-import { createTextLayer, createProfileLayer, DEFAULT_FONT } from './model.js';
+import { createTextLayer, createProfileLayer, createElementLayer, DEFAULT_FONT } from './model.js';
 
 const MONO = { id: 'geist-mono', family: 'Geist Mono', weight: 500, italic: false };
 const SERIF = { id: 'instrument-serif', family: 'Instrument Serif', weight: 400, italic: true };
@@ -16,6 +16,28 @@ const heading = (text, font, overrides = {}) => createTextLayer({ text, size: 14
  * never loses what the user typed. `content` = { kicker, headline, subtitle, font }.
  */
 export const TEMPLATES = [
+  {
+    id: 'box-post',
+    label: 'Box post',
+    build: (c) => [
+      createElementLayer('post-card', { width: 0.8, height: 0.78, cy: 0.5 }),
+      kicker(c.kicker, { cy: 0.22, color: '#1b1b1f', box: 'none' }),
+      heading(c.headline, c.font, { cy: 0.44, size: 104, width: 0.68, gradient: false, color: '#111114' }),
+      body(c.subtitle, { cy: 0.66, width: 0.62, color: '#3a3a42', opacity: 0.85 }),
+      createElementLayer('rule', { cy: 0.78, width: 0.16, height: 0.03 }),
+    ],
+  },
+  {
+    id: 'brutal',
+    label: 'Brutal box',
+    build: (c) => [
+      createElementLayer('brutal-box', { width: 0.8, height: 0.74, cy: 0.5 }),
+      createElementLayer('star-burst', { cx: 0.84, cy: 0.2, width: 0.14, height: 0.25, color: '#ff5a8a' }),
+      kicker(c.kicker, { cx: 0.45, cy: 0.24, color: '#111111', box: 'none', align: 'left', width: 0.62 }),
+      heading(c.headline, c.font, { cx: 0.45, cy: 0.46, size: 100, width: 0.62, align: 'left', gradient: false, color: '#111111' }),
+      body(c.subtitle, { cx: 0.45, cy: 0.66, width: 0.62, align: 'left', color: '#111111', opacity: 0.8 }),
+    ],
+  },
   {
     id: 'headline',
     label: 'Headline',

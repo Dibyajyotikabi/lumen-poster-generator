@@ -93,10 +93,23 @@ export const DECORATIVE_ELEMENTS = [
   { id: 'heart', label: 'Heart', group: 'stickers', width: 0.09, height: 0.13, cx: 0.79, cy: 0.26, color: '#ef8fa2' },
 ];
 
-export const ELEMENTS = [...EDITORIAL_ELEMENTS, ...DECORATIVE_ELEMENTS];
+export const SHAPE_ELEMENTS = [
+  { id: 'post-card', label: 'Post box', group: 'shapes', width: 0.72, height: 0.7, cx: 0.5, cy: 0.5, color: '#ffffff' },
+  { id: 'box', label: 'Solid box', group: 'shapes', width: 0.4, height: 0.3, cx: 0.5, cy: 0.5 },
+  { id: 'box-outline', label: 'Outline box', group: 'shapes', width: 0.4, height: 0.3, cx: 0.5, cy: 0.5 },
+  { id: 'brutal-box', label: 'Brutal box', group: 'shapes', width: 0.42, height: 0.32, cx: 0.5, cy: 0.5, color: '#ffd84d' },
+  { id: 'glass-box', label: 'Glass box', group: 'shapes', width: 0.5, height: 0.36, cx: 0.5, cy: 0.5, color: '#ffffff' },
+  { id: 'pill-shape', label: 'Pill', group: 'shapes', width: 0.3, height: 0.1, cx: 0.5, cy: 0.5 },
+  { id: 'circle', label: 'Circle', group: 'shapes', width: 0.16, height: 0.28, cx: 0.5, cy: 0.5 },
+  { id: 'speech', label: 'Speech bubble', group: 'shapes', width: 0.34, height: 0.28, cx: 0.5, cy: 0.5, color: '#ffffff' },
+  { id: 'star-burst', label: 'Starburst', group: 'shapes', width: 0.18, height: 0.32, cx: 0.8, cy: 0.25, color: '#ffd84d' },
+  { id: 'line', label: 'Line', group: 'shapes', width: 0.4, height: 0.012, cx: 0.5, cy: 0.5 },
+];
+
+export const ELEMENTS = [...EDITORIAL_ELEMENTS, ...DECORATIVE_ELEMENTS, ...SHAPE_ELEMENTS];
 
 export function elementSize(variant) {
-  const decorative = DECORATIVE_ELEMENTS.find((entry) => entry.id === variant);
+  const decorative = [...DECORATIVE_ELEMENTS, ...SHAPE_ELEMENTS].find((entry) => entry.id === variant);
   return {
     width: decorative?.width ?? (variant === 'quote' || variant === 'number' ? 0.14 : 0.35),
     height: decorative?.height ?? (variant === 'bar' || variant === 'rule' ? 0.035 : 0.16),
@@ -146,7 +159,7 @@ export function createTextLayer(overrides = {}) {
 }
 
 export function createElementLayer(variant = 'bar', overrides = {}) {
-  const decorative = DECORATIVE_ELEMENTS.find((entry) => entry.id === variant);
+  const decorative = [...DECORATIVE_ELEMENTS, ...SHAPE_ELEMENTS].find((entry) => entry.id === variant);
   const placement = {
     bar: { cy: 0.72 },
     rule: { cy: 0.78 },
@@ -206,7 +219,7 @@ export function createImageLayer(assetId, overrides = {}) {
 }
 
 export const LINK_VARIANTS = {
-  tweet: [{ id: 'tweet', label: 'Post' }],
+  tweet: [{ id: 'tweet', label: 'Post' }, { id: 'quote', label: 'Big quote' }],
   video: [
     { id: 'video', label: 'Video' },
     { id: 'hero', label: 'Hero' },
@@ -215,7 +228,10 @@ export const LINK_VARIANTS = {
     { id: 'minimal', label: 'Pill' },
   ],
   article: [
+    { id: 'browser', label: 'Browser' },
+    { id: 'headline', label: 'Headline' },
     { id: 'card', label: 'Card' },
+    { id: 'quote', label: 'Quote' },
     { id: 'hero', label: 'Hero' },
     { id: 'compact', label: 'Compact' },
     { id: 'minimal', label: 'Pill' },
@@ -229,7 +245,7 @@ export const CARD_THEMES = [
   { id: 'dark', label: 'Dark' },
 ];
 
-export const DEFAULT_LINK_VARIANT = { tweet: 'tweet', video: 'video', article: 'card', image: 'hero' };
+export const DEFAULT_LINK_VARIANT = { tweet: 'tweet', video: 'video', article: 'browser', image: 'hero' };
 
 export function createLinkLayer(preview, overrides = {}) {
   return {

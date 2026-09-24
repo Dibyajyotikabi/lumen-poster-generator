@@ -22,6 +22,7 @@ const IMAGE_EXT = /\.(heic|jpe?g|png|tiff?|webp)$/i;
 const SIZES = { thumb: 480, full: 2880 };
 
 const MIME = {
+  '.webp': 'image/webp',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
