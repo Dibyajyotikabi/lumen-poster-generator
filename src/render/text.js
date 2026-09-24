@@ -90,7 +90,7 @@ function paintLines(ctx, L, layer, { fill, highlight, paperInk, dx = 0, dy = 0, 
     const y = L.box.y + (i + 0.5) * L.lineH + dy;
     let x = lineStartX(L, layer, i) + dx;
     runs.forEach((run) => {
-      const ink = run.paper || layer.box === 'paper' ? paperInk : run.highlight ? highlight : fill;
+      const ink = run.paper ? paperInk : run.highlight ? highlight : fill;
       if (stroke) {
         ctx.strokeStyle = ink;
         ctx.strokeText(run.text, x, y);
@@ -130,18 +130,8 @@ function drawPaperRuns(ctx, L, layer, paperColor, paperInk, u) {
 }
 
 function drawBoxDecoration(ctx, L, layer, colors, u) {
-  if (layer.box === 'none' || !L.lines.length) return;
+  if (layer.box === 'none' || layer.box === 'paper' || !L.lines.length) return;
   const { size, lineH } = L;
-  if (layer.box === 'paper') {
-    const left = Math.min(...L.lines.map((_, i) => lineStartX(L, layer, i)));
-    const right = Math.max(...L.lines.map((_, i) => lineStartX(L, layer, i) + L.widths[i]));
-    drawPaper(ctx, {
-      x: left - size * 0.38, y: L.box.y - size * 0.24,
-      w: right - left + size * 0.76, h: L.box.h + size * 0.48,
-      color: colors.paper, ink: colors.paperInk, style: layer.paperStyle, seed: 1, u,
-    });
-    return;
-  }
   if (layer.box === 'pill') {
     const maxW = Math.max(...L.widths);
     const padX = size * 0.9;
@@ -182,7 +172,7 @@ export function drawText(ctx, layer, L, theme, u) {
   ctx.textAlign = 'left';
   drawBoxDecoration(ctx, L, layer, colors, u);
   applyFont(ctx, L.face, L.size, layer.tracking);
-  if (layer.box !== 'paper') drawPaperRuns(ctx, L, layer, colors.paper, colors.paperInk, u);
+  drawPaperRuns(ctx, L, layer, colors.paper, colors.paperInk, u);
 
   let fill = base;
   if (layer.gradient) {

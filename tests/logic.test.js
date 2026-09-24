@@ -124,6 +124,8 @@ test('paper and accent markers preserve visible words across wrapped lines', () 
   assert.deepEqual(runs[0].at(-1), { text: 'paper', highlight: false, paper: true });
   assert.deepEqual(runs[1][0], { text: 'strip', highlight: false, paper: true });
   assert.deepEqual(runs[2][0], { text: 'words', highlight: true, paper: false });
+  const stray = styledLines(['A ~stray marker', 'cannot style later words']);
+  assert.ok(stray.flat().every((run) => !run.paper));
 });
 
 test('style buttons wrap and unwrap the selected phrase', () => {
@@ -131,8 +133,35 @@ test('style buttons wrap and unwrap the selected phrase', () => {
   assert.equal(marked.value, 'A ~paper~ idea');
   assert.deepEqual([marked.start, marked.end], [3, 8]);
   assert.deepEqual(markSelection(marked.value, marked.start, marked.end, '~'), { value: 'A paper idea', start: 2, end: 7 });
-  assert.deepEqual(markSelection('Title', 5, 5, '*'), { value: '*Title*', start: 1, end: 6 });
-  assert.deepEqual(markSelection('One good idea', 5, 5, '~'), { value: 'One ~good~ idea', start: 5, end: 9 });
+  assert.deepEqual(markSelection('Title', 5, 5, '*'), { value: 'Title', start: 5, end: 5 });
+  assert.deepEqual(markSelection('One good idea', 5, 5, '~'), { value: 'One good idea', start: 5, end: 5 });
+  assert.equal(markSelection('extraordinary', 5, 8, '~').value, 'extra~ord~inary');
+});
+
+test('paper renders behind only explicitly marked text, including legacy paper layers', () => {
+  const painted = [];
+  let sheets = 0;
+  const ctx = {
+    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+    fill() {}, stroke() {}, clip() {}, fillRect() {}, arc() {},
+    createLinearGradient() { sheets += 1; return { addColorStop() {} }; },
+    fillText(value) { painted.push([value, this.fillStyle]); },
+    measureText(value) { return { width: value.length * 10 }; },
+  };
+  const layout = (line) => ({
+    face: { family: 'Geist', weight: 700, style: 'normal' },
+    size: 30, lineH: 38, lines: [line], runs: styledLines([line]),
+    widths: [stripMarks(line).length * 10], box: { x: 0, y: 0, w: 500, h: 38 },
+  });
+  const layer = createTextLayer({ box: 'paper', effect: 'none' });
+  const theme = { text: '#ffffff', accent: '#ff9900', bg: '#101010' };
+  drawText(ctx, layer, layout('plain ~selected~ tail'), theme, 1);
+  assert.equal(sheets, 1);
+  assert.deepEqual(painted, [['plain ', '#ffffff'], ['selected', '#222027'], [' tail', '#ffffff']]);
+  painted.length = 0;
+  drawText(ctx, layer, layout('plain text'), theme, 1);
+  assert.equal(sheets, 1);
+  assert.deepEqual(painted, [['plain text', '#ffffff']]);
 });
 
 test('paper and display effects paint styled text without marker glyphs', () => {
@@ -305,6 +334,8 @@ test('createDocument is valid and survives sanitize', () => {
   assert.deepEqual(docSize(doc), SIZES.youtube);
   const withElement = { ...doc, layers: [...doc.layers, createElementLayer('quote')] };
   assert.deepEqual(sanitizeDocument(JSON.parse(JSON.stringify(withElement))), withElement);
+  const withOldPaper = { ...doc, layers: [...doc.layers, createTextLayer({ box: 'paper', text: 'Only ~this~' })] };
+  assert.equal(sanitizeDocument(withOldPaper).layers.at(-1).box, 'none');
 });
 
 test('sanitizeDocument rejects junk and clamps custom sizes', () => {

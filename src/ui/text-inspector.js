@@ -1,4 +1,4 @@
-import { h, icon } from './dom.js';
+import { h, icon, toast } from './dom.js';
 import { slider, segmented, toggle, colorField, textField, section, pct } from './controls.js';
 import { TEXT_EFFECTS, TEXT_BOXES, PAPER_STYLES } from '../app/model.js';
 import { getFont, nearestWeight, availableIds } from '../fonts/catalog.js';
@@ -30,7 +30,13 @@ export function buildTextInspector(deps, id) {
   const text = textField({ value: initial.text, multiline: true, rows: 4, placeholder: 'Type anything, then select words to style', onInput: (v) => update({ text: v }, 'text') });
   text.input.classList.add('text-editor');
   const mark = (marker) => {
-    const result = markSelection(text.input.value, text.input.selectionStart, text.input.selectionEnd, marker);
+    const { selectionStart: start, selectionEnd: end } = text.input;
+    if (start === end) {
+      text.input.focus();
+      toast('Select the exact text to style first');
+      return;
+    }
+    const result = markSelection(text.input.value, start, end, marker);
     text.input.value = result.value;
     update({ text: result.value }, 'text');
     text.input.focus();
@@ -129,10 +135,28 @@ export function buildTextInspector(deps, id) {
     const layer = layerOf(store.get(), id);
     update({ autoFit: true, ...patch(layer) });
   } }, label);
+  const paperPreset = (label, style, color) => h('button', {
+    type: 'button', class: 'text-preset',
+    onmousedown: (event) => event.preventDefault(),
+    onclick: () => {
+      const { selectionStart: start, selectionEnd: end, value } = text.input;
+      if (start === end) {
+        text.input.focus();
+        toast('Select the exact text for the paper strip first');
+        return;
+      }
+      const alreadyMarked = start > 0 && value[start - 1] === '~' && value[end] === '~';
+      const result = alreadyMarked ? { value, start, end } : markSelection(value, start, end, '~');
+      text.input.value = result.value;
+      update({ text: result.value, paperStyle: style, paperColor: color }, 'text');
+      text.input.focus();
+      text.input.setSelectionRange(result.start, result.end);
+    },
+  }, label);
   const presets = h('div', { class: 'text-presets', role: 'group', 'aria-label': 'Text style presets' },
     preset('Editorial', (layer) => ({ effect: 'editorial', width: Math.max(layer.width, 0.78), lineHeight: Math.max(layer.lineHeight, 1.14), tracking: 0 })),
-    preset('Paper story', (layer) => ({ box: 'paper', paperStyle: 'torn', paperColor: '#f4ead5', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
-    preset('Dark newsprint', (layer) => ({ box: 'paper', paperStyle: 'dark', paperColor: '#232730', effect: 'none', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
+    paperPreset('Torn selection', 'torn', '#f4ead5'),
+    paperPreset('Dark selection', 'dark', '#232730'),
     preset('Voxel title', () => ({ effect: 'voxel', uppercase: true, tracking: -0.04, lineHeight: 1.02 })),
   );
 
@@ -140,10 +164,10 @@ export function buildTextInspector(deps, id) {
     'div',
     {},
     layerHeader('Text', id, deps),
-    section('Content', text.el, markupTools, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' Select a phrase or place the caret in a word; then apply accent or paper. Markers can also be typed: ', h('code', {}, '*accent*'), ' and ', h('code', {}, '~paper~'), '.')),
+    section('Content', text.el, markupTools, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' Select the exact words or characters first, then click Paper strip. Only that selection gets paper. Markers can also be typed: ', h('code', {}, '*accent*'), ' and ', h('code', {}, '~paper~'), '.')),
     section('Typeface', fontButton, h('div', { class: 'suggest-head' }, moodLabel), suggestions, weight.el, h('div', { class: 'switch-row' }, italic.el, upper.el, fade.el)),
     section('Layout', presets, autoFit.el, h('p', { class: 'hint-line' }, 'Balances long text and keeps it inside the canvas. Size is the upper limit.'), size.el, width.el, align.el, lineHeight.el, tracking.el),
-    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, paperStyle.el, paperColor.el, h('p', { class: 'hint-line' }, 'Paper finishes work on a whole text layer or just the words marked with ~.'), opacity.el),
+    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, paperStyle.el, paperColor.el, h('p', { class: 'hint-line' }, 'Paper finish and tint affect only text between matching ~ markers.'), opacity.el),
   );
 
   return {

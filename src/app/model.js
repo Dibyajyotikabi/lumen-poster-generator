@@ -59,7 +59,6 @@ export const TEXT_BOXES = [
   { id: 'none', label: 'None' },
   { id: 'pill', label: 'Pill' },
   { id: 'block', label: 'Marker' },
-  { id: 'paper', label: 'Paper' },
 ];
 
 export const PAPER_STYLES = [
@@ -293,7 +292,9 @@ export function sanitizeDocument(input) {
   if (!input || input.version !== 2 || !Array.isArray(input.layers)) return null;
   const theme = input.theme ?? {};
   if (![theme.bg, theme.text, theme.accent].every(isHex)) return null;
-  const layers = input.layers.filter((l) => l && typeof l.id === 'string' && ['text', 'profile', 'image', 'link', 'element'].includes(l.type));
+  const layers = input.layers
+    .filter((l) => l && typeof l.id === 'string' && ['text', 'profile', 'image', 'link', 'element'].includes(l.type))
+    .map((l) => l.type === 'text' && l.box === 'paper' ? { ...l, box: 'none' } : l);
   const custom = {
     width: Math.round(clampNum(input.custom?.width, 64, 4096, 1280)),
     height: Math.round(clampNum(input.custom?.height, 64, 4096, 720)),
