@@ -1,16 +1,19 @@
 import { h, icon, pickFile } from './dom.js';
 import { TEMPLATES } from '../app/templates.js';
+import { EDITORIAL_ELEMENTS } from '../app/model.js';
 
-const TYPE_ICON = { text: 'text', profile: 'user', image: 'image', link: 'link' };
+const TYPE_ICON = { text: 'text', profile: 'user', image: 'image', link: 'link', element: 'sparkle' };
+const ELEMENT_GLYPHS = { bar: '▰', rule: '━•', number: '01', quote: '“”', arrow: '➜', dots: '•••', voxels: '▦', bracket: '⌜⌟' };
 const NAME_LIMIT = 28;
 
 function layerName(layer, profiles) {
   if (layer.type === 'text') {
-    const clean = layer.text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    const clean = layer.text.replace(/[*~]/g, '').replace(/\s+/g, ' ').trim();
     return clean ? (clean.length > NAME_LIMIT ? `${clean.slice(0, NAME_LIMIT)}…` : clean) : 'Empty text';
   }
   if (layer.type === 'profile') return profiles.find((p) => p.id === layer.profileId)?.name ?? 'Profile';
   if (layer.type === 'link') return layer.siteName || layer.domain || 'Link';
+  if (layer.type === 'element') return EDITORIAL_ELEMENTS.find((entry) => entry.id === layer.variant)?.label ?? 'Element';
   return 'Image';
 }
 
@@ -38,12 +41,18 @@ export function mountRail(root, { store, actions, focusLink }) {
     { class: 'templates' },
     TEMPLATES.map((t) => h('button', { type: 'button', class: 'template-btn', dataset: { template: t.id }, onclick: () => actions.applyTemplate(t.id) }, h('span', { class: `tpl-glyph tpl-${t.id}`, 'aria-hidden': 'true' }), h('span', {}, t.label))),
   );
+  const elements = h('div', { class: 'element-grid' },
+    EDITORIAL_ELEMENTS.map((entry) => h('button', {
+      type: 'button', class: 'element-add',
+      title: `Add ${entry.label}`, onclick: () => actions.addElement(entry.id),
+    }, h('span', { class: 'element-glyph', 'aria-hidden': 'true' }, ELEMENT_GLYPHS[entry.id]), h('span', {}, entry.label))));
 
   const list = h('ol', { class: 'layer-list', 'aria-label': 'Layers (top first)' });
   const bgRow = h('button', { type: 'button', class: 'layer-row layer-bg', onclick: () => store.select(null) }, icon('palette', 14), h('span', { class: 'layer-name' }, 'Background'));
 
   root.append(
     h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Add'), addRow),
+    h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Vox-style elements'), elements),
     h('section', { class: 'group' }, h('h3', { class: 'group-title' }, 'Layouts'), templates),
     h('section', { class: 'group group-layers' }, h('h3', { class: 'group-title' }, 'Layers'), list, bgRow),
   );

@@ -7,8 +7,10 @@ A browser-based studio for YouTube thumbnails, blog featured images, LinkedIn ba
 ## Features
 
 - **Long-form text that fits** — auto-fit balances lines inside the canvas and gives nearby layers their own space. Drag, resize and align any number of text layers.
-- **Style individual phrases** — select words and click **Accent words** or **Paper strip**, or type `*accent*` and `~paper~` directly. Paper strips have an editable tint and torn edges.
-- **Display typography** — Editorial adds an offset and underline; Voxel title adds chunky 3D depth. Quick presets also include Paper story.
+- **Style individual phrases** — select words or place the caret in a word, then click **Accent words** or **Paper strip**. You can also type `*accent*` and `~paper~` directly.
+- **Paper that reads as paper** — deterministic torn edges, shadows and fibers, with Torn, Notebook, Tape, Newsprint and Dark finishes. Apply to one phrase or a whole text layer; set your own tint.
+- **Vox-style newspaper graphics** — add and edit accent bars, rules with dots, number badges, quote marks, arrows, halftone dots, voxel blocks and frame corners as independent layers. Resize, recolor, reorder and export them.
+- **Display typography** — Editorial adds an offset and underline; Voxel title adds chunky 3D depth. Quick presets include Paper story and Dark newsprint.
 - **1,900+ live Google fonts** — searchable, previewed in your own words, with hover-to-preview on the canvas.
 - **Auto-style** — reads your text's mood and picks a font pairing, palette and light style.
 - **Generated backgrounds** — 12 light styles (aura, spotlight, rays, eclipse, blur, aurora, waves, rings, halftone, grid, mesh, plain) with grain and vignette.

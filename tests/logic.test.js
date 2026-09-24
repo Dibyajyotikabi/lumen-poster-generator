@@ -7,10 +7,12 @@ import { normalizeHandle, detectPlatform } from '../src/core/handles.js';
 import { extractPalette } from '../src/core/extract-palette.js';
 import { analyzeMood, suggestDirection, suggestFonts, MOODS } from '../src/fonts/suggest.js';
 import { nearestWeight } from '../src/fonts/catalog.js';
-import { createDocument, createTextLayer, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
+import { createDocument, createTextLayer, createElementLayer, EDITORIAL_ELEMENTS, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
 import { TEMPLATES, extractContent } from '../src/app/templates.js';
 import { drawText, layoutText } from '../src/render/text.js';
 import { textFitBounds } from '../src/render/renderer.js';
+import { drawEditorialElement } from '../src/render/editorial-elements.js';
+import { drawPaper } from '../src/render/paper.js';
 import { markSelection, stripMarks, styledLines } from '../src/core/text-markup.js';
 
 // Fake metric: every character is half the font size wide.
@@ -129,14 +131,16 @@ test('style buttons wrap and unwrap the selected phrase', () => {
   assert.equal(marked.value, 'A ~paper~ idea');
   assert.deepEqual([marked.start, marked.end], [3, 8]);
   assert.deepEqual(markSelection(marked.value, marked.start, marked.end, '~'), { value: 'A paper idea', start: 2, end: 7 });
-  assert.deepEqual(markSelection('Title', 5, 5, '*'), { value: 'Title**', start: 6, end: 6 });
+  assert.deepEqual(markSelection('Title', 5, 5, '*'), { value: '*Title*', start: 1, end: 6 });
+  assert.deepEqual(markSelection('One good idea', 5, 5, '~'), { value: 'One ~good~ idea', start: 5, end: 9 });
 });
 
 test('paper and display effects paint styled text without marker glyphs', () => {
   const painted = [];
   const ctx = {
     save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
-    fill() {}, stroke() {}, clip() {}, fillRect() {},
+    fill() {}, stroke() {}, clip() {}, fillRect() {}, arc() {},
+    createLinearGradient() { return { addColorStop() {} }; },
     fillText(value) { painted.push(value); }, strokeText(value) { painted.push(value); },
     measureText(value) { return { width: value.length * 12 }; },
   };
@@ -152,6 +156,45 @@ test('paper and display effects paint styled text without marker glyphs', () => 
   }
   assert.ok(painted.includes('paper strip'));
   assert.ok(painted.every((value) => !/[*~]/.test(value)));
+});
+
+test('paper finishes draw deterministic torn edges and distinct textures', () => {
+  const events = [];
+  const ctx = {
+    save() {}, restore() {}, beginPath() {}, closePath() {}, clip() {}, fill() {},
+    moveTo(x, y) { events.push(['move', x, y]); },
+    lineTo(x, y) { events.push(['line', x, y]); },
+    stroke() { events.push(['stroke']); },
+    fillRect() { events.push(['rect']); },
+    arc() { events.push(['dot']); },
+    createLinearGradient() { return { addColorStop() {} }; },
+  };
+  const draw = (style) => {
+    events.length = 0;
+    drawPaper(ctx, { x: 0, y: 0, w: 180, h: 64, color: '#f4ead5', ink: '#222027', style, seed: 7, u: 1 });
+    return [...events];
+  };
+  assert.deepEqual(draw('torn'), draw('torn'));
+  assert.ok(draw('notebook').filter(([kind]) => kind === 'stroke').length > draw('torn').filter(([kind]) => kind === 'stroke').length);
+  assert.ok(draw('newsprint').some(([kind]) => kind === 'dot'));
+  assert.ok(draw('tape').some(([kind]) => kind === 'rect'));
+});
+
+test('all Vox-style elements paint and keep editable canvas bounds', () => {
+  const painted = [];
+  const ctx = {
+    save() {}, restore() {}, beginPath() {}, closePath() {}, fill() {}, stroke() {},
+    moveTo() {}, lineTo() {}, arc() {}, fillRect() {}, fillText(value) { painted.push(value); },
+  };
+  const theme = { accent: '#6f86ff' };
+  for (const { id } of EDITORIAL_ELEMENTS) {
+    const layer = createElementLayer(id);
+    const box = drawEditorialElement(ctx, layer, { W: 1280, H: 720, u: 1, theme });
+    assert.ok(box.w > 0 && box.h > 0 && Number.isFinite(box.x) && Number.isFinite(box.y), id);
+  }
+  assert.ok(painted.includes('01'));
+  assert.equal(createElementLayer('bar').cy, 0.72);
+  assert.equal(createElementLayer('number').cx, 0.18);
 });
 
 test('slugify produces safe file names', () => {
@@ -260,6 +303,8 @@ test('createDocument is valid and survives sanitize', () => {
   const doc = createDocument('pr1');
   assert.deepEqual(sanitizeDocument(JSON.parse(JSON.stringify(doc))), doc);
   assert.deepEqual(docSize(doc), SIZES.youtube);
+  const withElement = { ...doc, layers: [...doc.layers, createElementLayer('quote')] };
+  assert.deepEqual(sanitizeDocument(JSON.parse(JSON.stringify(withElement))), withElement);
 });
 
 test('sanitizeDocument rejects junk and clamps custom sizes', () => {

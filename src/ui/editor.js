@@ -135,6 +135,8 @@ export function createEditor({ store, area, wrap, canvas, onEditText }) {
         ? { size: Math.max(4, Math.round(layer.size * factor * 10) / 10) }
         : layer.type === 'profile'
           ? { scale: Math.max(0.2, Math.min(6, layer.scale * factor)) }
+          : layer.type === 'element'
+            ? { width: Math.max(0.03, Math.min(2, layer.width * factor)), height: Math.max(0.01, Math.min(1.5, layer.height * factor)) }
           : { width: Math.max(0.03, Math.min(2, layer.width * factor)) };
     store.updateLayer(layer.id, patch, { key });
     return {};

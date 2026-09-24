@@ -1,6 +1,6 @@
 import { h, pickFile } from './dom.js';
-import { slider, segmented, toggle, selectField, button, section, pct } from './controls.js';
-import { PROFILE_VARIANTS } from '../app/model.js';
+import { slider, segmented, toggle, selectField, textField, colorField, button, section, pct } from './controls.js';
+import { PROFILE_VARIANTS, EDITORIAL_ELEMENTS } from '../app/model.js';
 import { buildTextInspector } from './text-inspector.js';
 import { buildBackgroundInspector } from './background-inspector.js';
 import { layerHeader } from './layer-header.js';
@@ -85,7 +85,43 @@ function buildImageInspector(deps, id) {
   };
 }
 
-const BUILDERS = { text: buildTextInspector, profile: buildProfileInspector, image: buildImageInspector, link: buildLinkInspector };
+function buildElementInspector(deps, id) {
+  const { store } = deps;
+  const update = (patch, key) => store.updateLayer(id, patch, key ? { key: `${id}:${key}` } : undefined);
+  const initial = layerOf(store.get(), id);
+  const variant = selectField({
+    label: 'Element', options: EDITORIAL_ELEMENTS, value: initial.variant,
+    onChange: (value) => update({
+      variant: value,
+      width: value === 'number' || value === 'quote' ? 0.14 : 0.35,
+      height: value === 'bar' || value === 'rule' ? 0.035 : 0.16,
+    }),
+  });
+  const content = textField({ label: 'Badge text', value: initial.text ?? '01', onInput: (value) => update({ text: value.slice(0, 4) }, 'text') });
+  const width = slider({ label: 'Width', min: 0.03, max: 1.5, step: 0.005, value: initial.width, format: pct, onInput: (value) => update({ width: value }, 'width') });
+  const height = slider({ label: 'Height', min: 0.01, max: 1.2, step: 0.005, value: initial.height, format: pct, onInput: (value) => update({ height: value }, 'height') });
+  const color = colorField({ label: 'Colour', value: initial.color ?? store.get().doc.theme.accent, onInput: (value) => update({ color: value }, 'color') });
+  const opacity = slider({ label: 'Opacity', min: 0, max: 1, step: 0.01, value: initial.opacity, format: pct, onInput: (value) => update({ opacity: value }, 'opacity') });
+  const el = h('div', {},
+    layerHeader('Element', id, deps),
+    section('Vox-style element', variant.el, content.el, width.el, height.el, color.el, opacity.el));
+  return {
+    el,
+    sync(state) {
+      const layer = layerOf(state, id);
+      if (!layer) return;
+      variant.set(layer.variant);
+      content.el.hidden = layer.variant !== 'number';
+      content.set(layer.text ?? '');
+      width.set(layer.width);
+      height.set(layer.height);
+      color.set(layer.color ?? state.doc.theme.accent);
+      opacity.set(layer.opacity);
+    },
+  };
+}
+
+const BUILDERS = { text: buildTextInspector, profile: buildProfileInspector, image: buildImageInspector, link: buildLinkInspector, element: buildElementInspector };
 
 /** Context-sensitive right panel: background settings, or the selected layer's properties. */
 export function mountInspector(root, deps) {

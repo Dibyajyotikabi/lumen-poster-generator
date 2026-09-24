@@ -1,4 +1,4 @@
-import { createTextLayer, createProfileLayer, createImageLayer, createLinkLayer, createProfile, PALETTES, docSize, uid } from './model.js';
+import { createTextLayer, createProfileLayer, createImageLayer, createLinkLayer, createElementLayer, createProfile, PALETTES, docSize, uid } from './model.js';
 import { fetchLinkPreview, fetchRemoteImage } from './link.js';
 import { TEMPLATES, extractContent } from './templates.js';
 import { putAsset } from '../core/assets.js';
@@ -45,6 +45,10 @@ export function createActions({ store, images, render, cutout }) {
   const actions = {
     addText(overrides = {}) {
       return insertLayer(createTextLayer({ text: 'New text', size: 64, cy: 0.5, width: 0.78, autoFit: true, ...overrides }));
+    },
+
+    addElement(variant) {
+      return insertLayer(createElementLayer(variant));
     },
 
     addProfile(profileId = current().profiles[0]?.id) {

@@ -4,6 +4,7 @@ import { makeCanvas } from './effects.js';
 import { layoutText, drawText, roundRectPath } from './text.js';
 import { drawProfileLayer } from './profile.js';
 import { drawLinkLayer } from './link/index.js';
+import { drawEditorialElement } from './editorial-elements.js';
 import { rgba } from '../core/color.js';
 
 const PLACEHOLDER_ASPECT = 0.62;
@@ -18,7 +19,7 @@ export function textFitBounds(layer, layers, H) {
   const left = layer.cx - halfWidth(layer);
   const right = layer.cx + halfWidth(layer);
   for (const other of layers) {
-    if (other.id === layer.id || !other.visible || !Number.isFinite(other.cy)) continue;
+    if (other.id === layer.id || !other.visible || other.type === 'element' || !Number.isFinite(other.cy)) continue;
     if (Math.min(right, other.cx + halfWidth(other)) <= Math.max(left, other.cx - halfWidth(other))) continue;
     const boundary = (layer.cy + other.cy) * H / 2;
     if (other.cy < layer.cy) top = Math.max(top, boundary);
@@ -117,6 +118,8 @@ export function createRenderer(images) {
         boxes.set(layer.id, drawLinkLayer(ctx, layer, assets, env));
       } else if (layer.type === 'image') {
         boxes.set(layer.id, drawImageLayer(ctx, layer, images.get(`asset:${layer.assetId}`), env));
+      } else if (layer.type === 'element') {
+        boxes.set(layer.id, drawEditorialElement(ctx, layer, env));
       }
       ctx.restore();
     });

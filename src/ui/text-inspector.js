@@ -1,6 +1,6 @@
 import { h, icon } from './dom.js';
 import { slider, segmented, toggle, colorField, textField, section, pct } from './controls.js';
-import { TEXT_EFFECTS, TEXT_BOXES } from '../app/model.js';
+import { TEXT_EFFECTS, TEXT_BOXES, PAPER_STYLES } from '../app/model.js';
 import { getFont, nearestWeight, availableIds } from '../fonts/catalog.js';
 import { ensurePreview } from '../fonts/loader.js';
 import { suggestFonts, analyzeMood, MOODS } from '../fonts/suggest.js';
@@ -110,6 +110,18 @@ export function buildTextInspector(deps, id) {
   const effect = segmented({ label: 'Effect', options: TEXT_EFFECTS, value: initial.effect, onChange: (v) => update({ effect: v }), compact: true });
   effect.el.classList.add('text-effect-field');
   const box = segmented({ label: 'Background', options: TEXT_BOXES, value: initial.box, onChange: (v) => update({ box: v }), compact: true });
+  const paperStyle = segmented({
+    label: 'Paper finish', options: PAPER_STYLES, value: initial.paperStyle ?? 'torn',
+    onChange: (value) => {
+      const layer = layerOf(store.get(), id);
+      update({
+        paperStyle: value,
+        paperColor: value === 'dark' ? '#232730' : layer.paperStyle === 'dark' ? '#f4ead5' : layer.paperColor,
+      });
+    },
+    compact: true,
+  });
+  paperStyle.el.classList.add('paper-style-field');
   const paperColor = colorField({ label: 'Paper tint', value: initial.paperColor ?? '#f4ead5', onInput: (v) => update({ paperColor: v }, 'paper') });
   const opacity = slider({ label: 'Opacity', min: 0, max: 1, step: 0.01, value: initial.opacity, format: pct, onInput: (v) => update({ opacity: v }, 'opacity') });
 
@@ -119,7 +131,8 @@ export function buildTextInspector(deps, id) {
   } }, label);
   const presets = h('div', { class: 'text-presets', role: 'group', 'aria-label': 'Text style presets' },
     preset('Editorial', (layer) => ({ effect: 'editorial', width: Math.max(layer.width, 0.78), lineHeight: Math.max(layer.lineHeight, 1.14), tracking: 0 })),
-    preset('Paper story', (layer) => ({ box: 'paper', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
+    preset('Paper story', (layer) => ({ box: 'paper', paperStyle: 'torn', paperColor: '#f4ead5', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
+    preset('Dark newsprint', (layer) => ({ box: 'paper', paperStyle: 'dark', paperColor: '#232730', effect: 'none', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
     preset('Voxel title', () => ({ effect: 'voxel', uppercase: true, tracking: -0.04, lineHeight: 1.02 })),
   );
 
@@ -127,10 +140,10 @@ export function buildTextInspector(deps, id) {
     'div',
     {},
     layerHeader('Text', id, deps),
-    section('Content', text.el, markupTools, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' Select a phrase for accent colour or a torn paper strip. Markers can also be typed: ', h('code', {}, '*accent*'), ' and ', h('code', {}, '~paper~'), '.')),
+    section('Content', text.el, markupTools, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' Select a phrase or place the caret in a word; then apply accent or paper. Markers can also be typed: ', h('code', {}, '*accent*'), ' and ', h('code', {}, '~paper~'), '.')),
     section('Typeface', fontButton, h('div', { class: 'suggest-head' }, moodLabel), suggestions, weight.el, h('div', { class: 'switch-row' }, italic.el, upper.el, fade.el)),
     section('Layout', presets, autoFit.el, h('p', { class: 'hint-line' }, 'Balances long text and keeps it inside the canvas. Size is the upper limit.'), size.el, width.el, align.el, lineHeight.el, tracking.el),
-    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, paperColor.el, opacity.el),
+    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, paperStyle.el, paperColor.el, h('p', { class: 'hint-line' }, 'Paper finishes work on a whole text layer or just the words marked with ~.'), opacity.el),
   );
 
   return {
@@ -165,6 +178,7 @@ export function buildTextInspector(deps, id) {
       highlight.set(layer.highlight ?? state.doc.theme.accent);
       effectColor.set(layer.effectColor ?? state.doc.theme.accent);
       paperColor.set(layer.paperColor ?? '#f4ead5');
+      paperStyle.set(layer.paperStyle ?? 'torn');
       effect.set(layer.effect);
       box.set(layer.box);
       opacity.set(layer.opacity);

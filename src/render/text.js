@@ -2,6 +2,7 @@ import { isDark, rgba, mix } from '../core/color.js';
 import { fitTextBlock, wrapLines } from '../core/layout.js';
 import { stripMarks, styledLines } from '../core/text-markup.js';
 import { ensureFont } from '../fonts/loader.js';
+import { drawPaper } from './paper.js';
 
 const FALLBACK_STACK = 'ui-sans-serif, system-ui, -apple-system, sans-serif';
 
@@ -102,43 +103,6 @@ function paintLines(ctx, L, layer, { fill, highlight, paperInk, dx = 0, dy = 0, 
   });
 }
 
-function tornPaper(ctx, x, y, w, h, color, ink, seed, u) {
-  const tear = Math.max(1, u * 2.5);
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(x, y + tear);
-  ctx.lineTo(x + w * 0.24, y);
-  ctx.lineTo(x + w * 0.68, y + tear * 0.65);
-  ctx.lineTo(x + w, y);
-  ctx.lineTo(x + w - tear, y + h * 0.52);
-  ctx.lineTo(x + w, y + h);
-  ctx.lineTo(x + w * 0.62, y + h - tear * 0.4);
-  ctx.lineTo(x + w * 0.28, y + h);
-  ctx.lineTo(x, y + h - tear);
-  ctx.closePath();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)';
-  ctx.shadowBlur = 12 * u;
-  ctx.shadowOffsetY = 4 * u;
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.clip();
-  ctx.strokeStyle = rgba(ink, 0.09);
-  ctx.lineWidth = Math.max(0.5, u * 0.7);
-  const count = Math.min(45, Math.max(8, Math.round(w * h / (3500 * u * u))));
-  for (let i = 0; i < count; i += 1) {
-    const px = x + ((i * 0.618 + seed * 0.137) % 1) * w;
-    const py = y + ((i * 0.414 + seed * 0.271) % 1) * h;
-    ctx.beginPath();
-    ctx.moveTo(px, py);
-    ctx.lineTo(px + (2 + i % 4) * u, py - u * 0.5);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
 function drawPaperRuns(ctx, L, layer, paperColor, paperInk, u) {
   L.runs.forEach((runs, i) => {
     let x = lineStartX(L, layer, i);
@@ -146,10 +110,10 @@ function drawPaperRuns(ctx, L, layer, paperColor, paperInk, u) {
     let width = 0;
     const draw = () => {
       if (start === null) return;
-      const padX = L.size * 0.16;
-      const h = L.lineH * 0.88;
+      const padX = L.size * 0.22;
+      const h = L.lineH * 1.05;
       const y = L.box.y + (i + 0.5) * L.lineH - h / 2;
-      tornPaper(ctx, start - padX, y, width + padX * 2, h, paperColor, paperInk, i + start, u);
+      drawPaper(ctx, { x: start - padX, y, w: width + padX * 2, h, color: paperColor, ink: paperInk, style: layer.paperStyle, seed: i + start, u });
       start = null;
       width = 0;
     };
@@ -171,9 +135,11 @@ function drawBoxDecoration(ctx, L, layer, colors, u) {
   if (layer.box === 'paper') {
     const left = Math.min(...L.lines.map((_, i) => lineStartX(L, layer, i)));
     const right = Math.max(...L.lines.map((_, i) => lineStartX(L, layer, i) + L.widths[i]));
-    tornPaper(ctx, left - size * 0.38, L.box.y - size * 0.24,
-      right - left + size * 0.76, L.box.h + size * 0.48,
-      colors.paper, colors.paperInk, 1, u);
+    drawPaper(ctx, {
+      x: left - size * 0.38, y: L.box.y - size * 0.24,
+      w: right - left + size * 0.76, h: L.box.h + size * 0.48,
+      color: colors.paper, ink: colors.paperInk, style: layer.paperStyle, seed: 1, u,
+    });
     return;
   }
   if (layer.box === 'pill') {
