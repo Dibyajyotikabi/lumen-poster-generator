@@ -8,6 +8,27 @@ import { rgba } from '../core/color.js';
 
 const PLACEHOLDER_ASPECT = 0.62;
 
+/** Give auto-fit text the vertical lane between nearby, horizontally overlapping layers. */
+export function textFitBounds(layer, layers, H) {
+  let top = H * 0.07;
+  let bottom = H * 0.93;
+  const halfWidth = (item) => item.type === 'profile'
+    ? 0.14 * (item.scale ?? 1)
+    : (item.width ?? 0.3) / 2;
+  const left = layer.cx - halfWidth(layer);
+  const right = layer.cx + halfWidth(layer);
+  for (const other of layers) {
+    if (other.id === layer.id || !other.visible || !Number.isFinite(other.cy)) continue;
+    if (Math.min(right, other.cx + halfWidth(other)) <= Math.max(left, other.cx - halfWidth(other))) continue;
+    const boundary = (layer.cy + other.cy) * H / 2;
+    if (other.cy < layer.cy) top = Math.max(top, boundary);
+    if (other.cy > layer.cy) bottom = Math.min(bottom, boundary);
+  }
+  if (bottom > top) return { top, bottom };
+  const center = Math.max(H * 0.1, Math.min(H * 0.9, layer.cy * H));
+  return { top: center - H * 0.03, bottom: center + H * 0.03 };
+}
+
 function drawImageLayer(ctx, layer, img, { W, H, u, theme }) {
   const w = layer.width * W;
   const h = img ? w * (img.height / img.width) : w * PLACEHOLDER_ASPECT;
@@ -83,7 +104,7 @@ export function createRenderer(images) {
       const layer = preview?.layerId === base.id ? { ...base, ...preview.patch } : base;
       ctx.save();
       if (layer.type === 'text') {
-        const L = layoutText(ctx, layer, W, H, env.u);
+        const L = layoutText(ctx, layer, W, H, env.u, layer.autoFit ? textFitBounds(layer, doc.layers, H) : null);
         drawText(ctx, layer, L, doc.theme, env.u);
         boxes.set(layer.id, L.box);
       } else if (layer.type === 'profile') {

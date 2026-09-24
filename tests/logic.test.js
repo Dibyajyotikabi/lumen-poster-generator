@@ -9,7 +9,9 @@ import { analyzeMood, suggestDirection, suggestFonts, MOODS } from '../src/fonts
 import { nearestWeight } from '../src/fonts/catalog.js';
 import { createDocument, createTextLayer, sanitizeDocument, docSize, SIZES } from '../src/app/model.js';
 import { TEMPLATES, extractContent } from '../src/app/templates.js';
-import { layoutText } from '../src/render/text.js';
+import { drawText, layoutText } from '../src/render/text.js';
+import { textFitBounds } from '../src/render/renderer.js';
+import { markSelection, stripMarks, styledLines } from '../src/core/text-markup.js';
 
 // Fake metric: every character is half the font size wide.
 const measureAt = (str, size) => str.length * size * 0.5;
@@ -98,6 +100,58 @@ test('auto-fit text stays inside the canvas even near an edge', async () => {
     globalThis.document = previousDocument;
     globalThis.FontFace = previousFontFace;
   }
+});
+
+test('auto-fit reserves space for neighboring layers in the same column', () => {
+  const headline = createTextLayer({ cx: 0.5, cy: 0.45, width: 0.8, autoFit: true });
+  const kicker = createTextLayer({ cx: 0.5, cy: 0.25, width: 0.5 });
+  const subtitle = createTextLayer({ cx: 0.5, cy: 0.62, width: 0.62 });
+  const side = createTextLayer({ cx: 0.95, cy: 0.46, width: 0.05 });
+  const bounds = textFitBounds(headline, [kicker, headline, subtitle, side], 720);
+  assert.ok(Math.abs(bounds.top - 252) < 0.001);
+  assert.ok(Math.abs(bounds.bottom - 385.2) < 0.001);
+  const cramped = textFitBounds(headline, [
+    { ...kicker, cy: 0.48 }, headline, { ...subtitle, cy: 0.42 },
+  ], 720);
+  assert.ok(cramped.bottom - cramped.top < 720 * 0.12);
+});
+
+test('paper and accent markers preserve visible words across wrapped lines', () => {
+  assert.equal(stripMarks('A *bright* ~paper strip~'), 'A bright paper strip');
+  const runs = styledLines(['A ~paper', 'strip~ and *bright', 'words*']);
+  assert.deepEqual(runs[0].at(-1), { text: 'paper', highlight: false, paper: true });
+  assert.deepEqual(runs[1][0], { text: 'strip', highlight: false, paper: true });
+  assert.deepEqual(runs[2][0], { text: 'words', highlight: true, paper: false });
+});
+
+test('style buttons wrap and unwrap the selected phrase', () => {
+  const marked = markSelection('A paper idea', 2, 7, '~');
+  assert.equal(marked.value, 'A ~paper~ idea');
+  assert.deepEqual([marked.start, marked.end], [3, 8]);
+  assert.deepEqual(markSelection(marked.value, marked.start, marked.end, '~'), { value: 'A paper idea', start: 2, end: 7 });
+  assert.deepEqual(markSelection('Title', 5, 5, '*'), { value: 'Title**', start: 6, end: 6 });
+});
+
+test('paper and display effects paint styled text without marker glyphs', () => {
+  const painted = [];
+  const ctx = {
+    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+    fill() {}, stroke() {}, clip() {}, fillRect() {},
+    fillText(value) { painted.push(value); }, strokeText(value) { painted.push(value); },
+    measureText(value) { return { width: value.length * 12 }; },
+  };
+  const line = 'A ~paper strip~ with *accent*';
+  const layout = {
+    face: { family: 'Geist', weight: 700, style: 'normal' },
+    size: 30, lineH: 38, lines: [line], runs: styledLines([line]),
+    widths: [stripMarks(line).length * 12], box: { x: 20, y: 20, w: 500, h: 38 },
+  };
+  const theme = { text: '#ffffff', accent: '#ff9900', bg: '#101010' };
+  for (const effect of ['editorial', 'voxel']) {
+    drawText(ctx, createTextLayer({ text: line, box: 'paper', effect }), layout, theme, 1);
+  }
+  assert.ok(painted.includes('paper strip'));
+  assert.ok(painted.every((value) => !/[*~]/.test(value)));
 });
 
 test('slugify produces safe file names', () => {

@@ -51,12 +51,15 @@ export const TEXT_EFFECTS = [
   { id: 'glow', label: 'Glow' },
   { id: 'outline', label: 'Outline' },
   { id: 'extrude', label: '3D' },
+  { id: 'editorial', label: 'Editorial' },
+  { id: 'voxel', label: 'Voxel' },
 ];
 
 export const TEXT_BOXES = [
   { id: 'none', label: 'None' },
   { id: 'pill', label: 'Pill' },
   { id: 'block', label: 'Marker' },
+  { id: 'paper', label: 'Paper' },
 ];
 
 export const PROFILE_VARIANTS = [
@@ -95,6 +98,7 @@ export function createTextLayer(overrides = {}) {
     effectColor: null, // null → theme accent
     box: 'none',
     highlight: null, // null → theme accent
+    paperColor: '#f4ead5',
     ...overrides,
   };
 }

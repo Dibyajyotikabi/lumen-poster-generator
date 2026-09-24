@@ -4,6 +4,7 @@ import { TEXT_EFFECTS, TEXT_BOXES } from '../app/model.js';
 import { getFont, nearestWeight, availableIds } from '../fonts/catalog.js';
 import { ensurePreview } from '../fonts/loader.js';
 import { suggestFonts, analyzeMood, MOODS } from '../fonts/suggest.js';
+import { markSelection } from '../core/text-markup.js';
 import { layerHeader } from './layer-header.js';
 
 const SUGGESTION_COUNT = 8;
@@ -26,8 +27,22 @@ export function buildTextInspector(deps, id) {
   const initial = layerOf(store.get(), id);
   const theme = () => store.get().doc.theme;
 
-  const text = textField({ value: initial.text, multiline: true, rows: 4, placeholder: 'Type anything — wrap *words* in stars to highlight', onInput: (v) => update({ text: v }, 'text') });
+  const text = textField({ value: initial.text, multiline: true, rows: 4, placeholder: 'Type anything, then select words to style', onInput: (v) => update({ text: v }, 'text') });
   text.input.classList.add('text-editor');
+  const mark = (marker) => {
+    const result = markSelection(text.input.value, text.input.selectionStart, text.input.selectionEnd, marker);
+    text.input.value = result.value;
+    update({ text: result.value }, 'text');
+    text.input.focus();
+    text.input.setSelectionRange(result.start, result.end);
+  };
+  const markButton = (label, marker) => h('button', {
+    type: 'button', class: 'text-markup-button',
+    onmousedown: (event) => event.preventDefault(),
+    onclick: () => mark(marker),
+  }, label);
+  const markupTools = h('div', { class: 'text-markup-tools', role: 'group', 'aria-label': 'Style selected words' },
+    markButton('Accent words', '*'), markButton('Paper strip', '~'));
 
   /* ---------- font ---------- */
   const fontName = h('span', { class: 'font-current-name' });
@@ -93,17 +108,29 @@ export function buildTextInspector(deps, id) {
   const highlight = colorField({ label: '*Highlight*', value: initial.highlight ?? theme().accent, onInput: (v) => update({ highlight: v }, 'hl') });
   const effectColor = colorField({ label: 'Effect', value: initial.effectColor ?? theme().accent, onInput: (v) => update({ effectColor: v }, 'fx') });
   const effect = segmented({ label: 'Effect', options: TEXT_EFFECTS, value: initial.effect, onChange: (v) => update({ effect: v }), compact: true });
+  effect.el.classList.add('text-effect-field');
   const box = segmented({ label: 'Background', options: TEXT_BOXES, value: initial.box, onChange: (v) => update({ box: v }), compact: true });
+  const paperColor = colorField({ label: 'Paper tint', value: initial.paperColor ?? '#f4ead5', onInput: (v) => update({ paperColor: v }, 'paper') });
   const opacity = slider({ label: 'Opacity', min: 0, max: 1, step: 0.01, value: initial.opacity, format: pct, onInput: (v) => update({ opacity: v }, 'opacity') });
+
+  const preset = (label, patch) => h('button', { type: 'button', class: 'text-preset', onclick: () => {
+    const layer = layerOf(store.get(), id);
+    update({ autoFit: true, ...patch(layer) });
+  } }, label);
+  const presets = h('div', { class: 'text-presets', role: 'group', 'aria-label': 'Text style presets' },
+    preset('Editorial', (layer) => ({ effect: 'editorial', width: Math.max(layer.width, 0.78), lineHeight: Math.max(layer.lineHeight, 1.14), tracking: 0 })),
+    preset('Paper story', (layer) => ({ box: 'paper', width: Math.max(layer.width, 0.74), lineHeight: Math.max(layer.lineHeight, 1.2) })),
+    preset('Voxel title', () => ({ effect: 'voxel', uppercase: true, tracking: -0.04, lineHeight: 1.02 })),
+  );
 
   const el = h(
     'div',
     {},
     layerHeader('Text', id, deps),
-    section('Content', text.el, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' No length limit · Enter for new lines · ', h('code', {}, '*word*'), ' highlights')),
+    section('Content', text.el, markupTools, h('p', { class: 'hint-line' }, icon('sparkle', 12), ' Select a phrase for accent colour or a torn paper strip. Markers can also be typed: ', h('code', {}, '*accent*'), ' and ', h('code', {}, '~paper~'), '.')),
     section('Typeface', fontButton, h('div', { class: 'suggest-head' }, moodLabel), suggestions, weight.el, h('div', { class: 'switch-row' }, italic.el, upper.el, fade.el)),
-    section('Layout', autoFit.el, h('p', { class: 'hint-line' }, 'Balances long text and keeps it inside the canvas. Size is the upper limit.'), size.el, width.el, align.el, lineHeight.el, tracking.el),
-    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, opacity.el),
+    section('Layout', presets, autoFit.el, h('p', { class: 'hint-line' }, 'Balances long text and keeps it inside the canvas. Size is the upper limit.'), size.el, width.el, align.el, lineHeight.el, tracking.el),
+    section('Colour & effects', h('div', { class: 'colors' }, color.el, highlight.el, effectColor.el), effect.el, box.el, paperColor.el, opacity.el),
   );
 
   return {
@@ -137,6 +164,7 @@ export function buildTextInspector(deps, id) {
       color.set(layer.color ?? state.doc.theme.text);
       highlight.set(layer.highlight ?? state.doc.theme.accent);
       effectColor.set(layer.effectColor ?? state.doc.theme.accent);
+      paperColor.set(layer.paperColor ?? '#f4ead5');
       effect.set(layer.effect);
       box.set(layer.box);
       opacity.set(layer.opacity);
